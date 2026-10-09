@@ -258,7 +258,7 @@ export function ReadyToggle({ priv, onToggle, busy, readyCount, total }) {
   const why = !ready && (choice || temp.count > 0);
   const btn = html`<button type="button" class=${cx('readybtn', 'tapx', ready && 'is-on', busy && 'is-busy')} disabled=${!!reason || busy}
       aria-pressed=${ready ? 'true' : 'false'} aria-describedby=${why ? 'readywrap-why' : undefined} onClick=${() => onToggle(!ready)}>
-    <span class="readybtn__box">${ready ? html`<${Icon} name="check" />` : null}</span>
+    <span class="readybtn__box">${ready ? html`<${Icon} name="close" />` : html`<${Icon} name="check" />`}</span>
     <span class="readybtn__label">${ready ? t('取消准备') : t('准备就绪')}</span>
     <kbd class="readybtn__key">${hotkeyLabelOf('ready')}</kbd>
   </button>`;

@@ -23,25 +23,28 @@
   border-left: 3px solid var(--mint-500);
 }
 .shopbar__remain b { color: var(--mint-400); font-size: .2rem; margin-left: .04rem; }
+/* 冻结 / 刷新 as the official filled plates (every 盟约 recording): a light-blue 冻结 and a golden 刷新, each with its
+   glyph in a dark square, the refresh price on the plate's top edge. */
 .toolbtn {
-  --tb: var(--ice);
-  display: flex; align-items: center; gap: .08rem; height: .48rem; padding: 0 .14rem 0 .08rem;
-  background: rgba(8, 11, 10, .9); border: 2px solid var(--tb); color: var(--tb); font-size: .19rem; font-weight: 700; letter-spacing: .1em;
+  --tb: #8ed3f2; --tb-ink: #10283a; --tb-box: #1f5c80;
+  position: relative;
+  display: flex; align-items: center; gap: .1rem; height: .52rem; padding: 0 .16rem 0 .07rem; min-width: 1.6rem;
+  background: var(--tb); border: 2px solid rgba(255, 255, 255, .55); color: var(--tb-ink); font-size: .2rem; font-weight: 700; letter-spacing: .12em;
   box-shadow: 0 .04rem .14rem rgba(0, 0, 0, .45);
-  transition: background var(--t-fast), box-shadow var(--t-fast), transform var(--t-fast);
+  transition: background var(--t-fast), box-shadow var(--t-fast), transform var(--t-fast), filter var(--t-fast);
 }
-.toolbtn:hover:not(:disabled) { background: rgba(8, 11, 10, .9); background: color-mix(in srgb, var(--tb) 16%, rgba(8, 11, 10, .9)); box-shadow: 0 0 .18rem transparent; box-shadow: 0 0 .18rem color-mix(in srgb, var(--tb) 40%, transparent); }
+.toolbtn:hover:not(:disabled) { filter: brightness(1.08); box-shadow: 0 0 .22rem rgba(255, 255, 255, .25); }
 .toolbtn:active:not(:disabled) { transform: translateY(1px); }
-.toolbtn:disabled { --tb: var(--line-3); color: var(--text-dim); cursor: not-allowed; }
-.toolbtn__img { width: .34rem; height: .34rem; object-fit: contain; }
-.toolbtn .icon { width: .24rem; height: .24rem; }
-.toolbtn--amber { --tb: var(--amber); }
-.toolbtn--ice.is-on { background: var(--ice); color: #0b1822; }
-.toolbtn--ice.is-on kbd { color: #28435a; border-color: #5d88aa; }
-.toolbtn--ice.is-on:hover:not(:disabled) { background: #c2e5ff; color: #0b1822; box-shadow: 0 0 .22rem rgba(159, 212, 255, .6); }
-.toolbtn--ice.is-on kbd { background: rgba(255, 255, 255, .35) !important; }
+.toolbtn:disabled { filter: grayscale(.85) brightness(.55); cursor: not-allowed; }
+.toolbtn__img, .toolbtn > .icon { box-sizing: content-box; width: .28rem; height: .28rem; padding: .04rem; object-fit: contain; background: var(--tb-box); }
+.toolbtn .icon { width: .24rem; height: .24rem; color: #fff; }
+.toolbtn > span:not(.hex):not(.toolbtn__free) { flex: 1; text-align: center; }
+.toolbtn--amber { --tb: #f2c13a; --tb-ink: #2a1e05; --tb-box: #2b2a26; }
+.toolbtn--ice.is-on { --tb: #d4efff; --tb-box: #3a86b8; box-shadow: 0 0 .22rem rgba(159, 212, 255, .6), inset 0 0 .14rem rgba(80, 160, 220, .5); }
+.toolbtn--ice.is-on kbd { color: #28435a; border-color: #5d88aa; background: rgba(255, 255, 255, .35) !important; }
+.toolbtn kbd { color: var(--tb-ink); border-color: rgba(0, 0, 0, .35); background: rgba(255, 255, 255, .25); }
 .toolbtn__free { font-size: .13rem; padding: .01rem .06rem; background: var(--mint-500); color: var(--text-on-mint); letter-spacing: 0; }
-.toolbtn .hex { --hex-h: .26rem; }
+.toolbtn .hex { --hex-h: .3rem; position: absolute; top: -.2rem; left: 50%; transform: translateX(-50%); }
 
 .shopbar__row {
   position: relative; display: flex; align-items: stretch; gap: .08rem; padding: .1rem;

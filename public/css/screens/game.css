@@ -214,29 +214,35 @@
 }
 .readywrap__why .icon { width: .16rem; height: .16rem; color: #ff6a55; flex: none; }
 .readywrap__why b { color: #ff8a78; font-size: .16rem; }
+/* The official two states (every 盟约 recording): 准备就绪 is a lit mint plate with a ticked box; once ready it turns into
+   a pale grey 取消准备 plate with a crossed box. */
 .readybtn {
   display: flex; align-items: center; gap: .12rem; height: .56rem; padding: 0 .16rem 0 .12rem; min-width: 2.3rem;
-  background: rgba(10, 14, 12, .9); border: 2px solid var(--mint-500); color: var(--text-hi);
+  background: var(--mint-500); border: 2px solid var(--mint-400); color: var(--text-on-mint);
   font-size: .22rem; font-weight: 700; letter-spacing: .14em;
-  box-shadow: 0 0 .18rem rgba(23, 249, 183, .15);
+  box-shadow: 0 0 .22rem rgba(23, 249, 183, .35);
   transition: background var(--t-fast), color var(--t-fast), box-shadow var(--t-fast);
 }
-.readybtn:hover:not(:disabled) { background: rgba(78, 216, 175, .14); box-shadow: 0 0 .26rem rgba(23, 249, 183, .3); }
-.readybtn__box { width: .3rem; height: .3rem; border: 2px solid var(--mint-500); display: grid; place-items: center; flex: none; }
+.readybtn:hover:not(:disabled) { background: var(--mint-400); box-shadow: 0 0 .3rem rgba(23, 249, 183, .5); }
+.readybtn__box { width: .3rem; height: .3rem; border: 2px solid currentColor; display: grid; place-items: center; flex: none; }
 .readybtn__box .icon { width: .26rem; height: .26rem; }
 .readybtn__label { flex: 1; text-align: left; }
-.readybtn__key { font-family: var(--font-num); font-size: .11rem; font-weight: 500; letter-spacing: .06em; color: var(--text-dim); border: 1px solid var(--line-2); padding: 0 .04rem; }
-.readybtn.is-on { background: var(--mint-500); color: var(--text-on-mint); }
-.readybtn.is-on .readybtn__box { border-color: var(--text-on-mint); background: var(--text-on-mint); color: var(--mint-400); }
-.readybtn.is-on .readybtn__key { color: var(--mint-900); border-color: var(--mint-700); }
-.readybtn.is-on:hover:not(:disabled) { background: var(--mint-400); color: var(--text-on-mint); box-shadow: 0 0 .3rem rgba(23, 249, 183, .45); }
-.readybtn:disabled { border-color: var(--line-2); color: var(--text-dim); box-shadow: none; cursor: not-allowed; }
+.readybtn__key { font-family: var(--font-num); font-size: .11rem; font-weight: 500; letter-spacing: .06em; color: var(--mint-900); border: 1px solid var(--mint-700); padding: 0 .04rem; }
+.readybtn.is-on { background: rgba(214, 220, 218, .9); border-color: rgba(240, 244, 242, .95); color: #2a302e; box-shadow: 0 0 .14rem rgba(0, 0, 0, .35); }
+.readybtn.is-on .readybtn__key { color: #4a524f; border-color: #8a928f; }
+.readybtn.is-on:hover:not(:disabled) { background: rgba(236, 240, 238, .95); color: #1b201e; box-shadow: 0 0 .2rem rgba(255, 255, 255, .3); }
+.readybtn:disabled { background: rgba(10, 14, 12, .9); border-color: var(--line-2); color: var(--text-dim); box-shadow: none; cursor: not-allowed; }
 .readybtn:disabled .readybtn__box { border-color: var(--line-2); }
+.readybtn:disabled .readybtn__key { color: var(--text-dim); border-color: var(--line-2); }
 .readybtn.is-busy { opacity: .7; }
 
 /* ---- bond strip ---------------------------------------------------------------------------------------- */
-.gm__bonds { position: absolute; left: 1.56rem; top: 1.36rem; right: 5.2rem; pointer-events: none;
-  display: flex; align-items: flex-start; gap: max(.1rem, 8px); }
+/* Centred under the top bar like the official strip (every 盟约 recording: one bond sits under the round capsule, more
+   grow outward from it); the box is symmetric about the screen's centre, a strip wider than it starts at its left edge
+   (`safe`) and runs right, clear of the 准备就绪 button. The top / disc size stay: the prep camera measures them
+   (HUD_REM.bondStripBottom). */
+.gm__bonds { position: absolute; left: 1.56rem; top: 1.36rem; right: 1.56rem; pointer-events: none;
+  display: flex; align-items: flex-start; justify-content: safe center; gap: max(.1rem, 8px); }
 /* Only the bond discs (and the +N chip) take the pointer: the strip's box spans the width under the top bar, where the
    top board row's units stand (row 12 at 16:9 / 21:9 / 720p / phones, the boss field's row 5 in a boss prep) — it used
    to swallow the taps and drags on them (review of user playtest #2 item 8: every own unit reachable). */
