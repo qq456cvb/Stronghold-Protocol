@@ -2,6 +2,7 @@
 
 import { AREAS, areaFor } from '../board3d/layout.js';
 import { normRect } from '../projection.js';
+import { SEASON_THEME } from '../style.js';
 
 const VIEW_KINDS = new Set(['prep', 'normal', 'unite', 'boss', 'bossPrep', 'pen']);
 
@@ -60,6 +61,18 @@ export const penShown = (vk, prevVk = null) => vk === 'pen' || prevVk === 'pen';
 
 /** Is the prep's leader on the boss field shown for a view kind (a flight shows it when either end is the boss-field prep)? */
 export const leaderShown = (vk, prevVk = null) => vk === 'bossPrep' || prevVk === 'bossPrep';
+
+/**
+ * The board theme (render/textures.js BOARD_THEMES): `?theme=sand|default` in the page URL (dev), else the view
+ * option, else the season's (render/style.js SEASON_THEME: the 盟约 season is the sand board).
+ */
+export function boardThemePreference(opt, season) {
+  let q = null;
+  try { q = new URLSearchParams(globalThis.location?.search || '').get('theme'); } catch { /* no location */ }
+  const v = q || opt;
+  if (v === 'sand' || v === 'default') return v;
+  return (typeof season === 'string' && SEASON_THEME[season]) || 'default';
+}
 
 /** '2d' | '3d' | 'auto' board preference: `?board=` in the page URL (dev), else the view option. */
 export function boardPreference(opt) {
