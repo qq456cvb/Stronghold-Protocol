@@ -64,10 +64,11 @@
 // pen enemy emits pieceClick { enemyKey, preview: true, unit: { side: 'enemy', defId, enemyKey, preview: true } }.
 //   view.setCamera('pen') pans to the pen in 0.25 s (configBlackBoard move_time); `view.setCamera(kind, opts)` goes
 //   back (the same kind without options returns to the exact camera used before the pen).
-//   The pen is shown ONLY by the pen camera (user playtest #2 item 6: the battlefield with the waiting enemies above it
-//   looked wrong — after 返回战场 and in every battle): the prep, battle, 联防 and boss cameras neither build its 3D
-//   area nor draw its 2D rows (`boardArea` / `bandFor`), and its figures hide (`penShown`, kept for the way back); a
-//   flight to / from the pen shows both while it lasts.
+//   The pen lies above the field in every view of it — prep, battle, 联防 and the pen camera (`boardArea` / `bandFor` /
+//   `penShown`): its front rows show at the top edge, the waiting enemies in prep and the empty floor in battle, as in
+//   the official views (the owner's 终极模拟 recordings; the owner's request of 2026-10-11 reverses user playtest #2
+//   item 6, which had kept it for the pen camera alone); the boss cameras build the boss field without it, and a
+//   flight between the two shows it while it lasts.
 // The round's leader (community report #12, owner's decision 2026-10-04; research 09 §2.2: in the official Final Assault
 // prep image the boss stands on the boss field with its HP bar): a nextEnemies entry with its spawn tile `start`
 // (render/prepfield.js leaderStand) stands there — idle, with its (full) HP bar, facing the player's half, a tap shows its
@@ -135,14 +136,14 @@ import { promotionsOf } from './promote.js';
 import { ensurePixi } from './app/pixi.js';
 import { pieceDirOf, pickUnitOf } from './app/pick.js';
 import { CAMERA_MS, BOARD3D_STABLE_MS, BOARD3D_RETRY_MS, PEN_CAMERA_MS, RANGE_GROUPS, LEADER_HIT_STYLE, DRAG_HOLD_TILES, CHAIN_KINDS, DROP_PENDING_MS } from './app/tune.js';
-import { boardPreference, switchableBox, bandFor, fieldRows, boardArea, viewKind, penShown, leaderShown } from './app/view.js';
+import { boardPreference, boardThemePreference, switchableBox, bandFor, fieldRows, boardArea, viewKind, penShown, leaderShown } from './app/view.js';
 import { renderInfo, FORCED_EXIT, showsDeathFx } from './app/info.js';
 import { resolveAssets, makeData, withTimeout, QUALITY_RES, BOARD_RES, releaseGl } from './app/host.js';
 import { t } from '../../../shared/i18n.js';
 
 export { ensurePixi } from './app/pixi.js';
 export { PEN_CAMERA_MS, LEADER_HIT_STYLE, DRAG_HOLD_TILES } from './app/tune.js';
-export { viewKind, boardArea, bandFor, fieldRows, penShown, leaderShown, boardPreference, switchableBox } from './app/view.js';
+export { viewKind, boardArea, bandFor, fieldRows, penShown, leaderShown, boardPreference, boardThemePreference, switchableBox } from './app/view.js';
 export { FORCED_EXIT, showsDeathFx, renderInfo } from './app/info.js';
 export { releaseGl } from './app/host.js';
 
@@ -163,9 +164,14 @@ export async function createFieldView(host, options = {}) {
   const assets = resolveAssets(opts.assets);
   const data = makeData(opts.data);
   const settings = { damageNumbers: true, quality: 'high', ...(opts.settings || {}) };
-  // the 3D board (three.js + the official art) loads in parallel with everything else
+  // the board theme: the season's (the 盟约 season is the sand board), or `opts.theme` / `?theme=`; read again on
+  // every setStage, in case the data arrived after the view
+  const seasonOf = () => { try { return opts.data?.get?.('config')?.season ?? null; } catch { return null; } };
+  let theme = boardThemePreference(opts.theme, seasonOf());
+  // the 3D board (three.js + the official art) loads in parallel with everything else. The local client's board art
+  // is the first season's grey board, so a sand-theme view keeps the 2D sand board unless `?board=3d` asks for it
   const boardPref = boardPreference(opts.board);
-  const want3d = boardPref !== '2d' && webgl2Available(boardPref === '3d');
+  const want3d = (boardPref === '3d' || (boardPref === 'auto' && theme === 'default')) && webgl2Available(boardPref === '3d');
   // three.js (~2 MB) is fetched only when the local-art manifest lists the board atlas (in parallel with the art)
   const artListed = want3d ? boardArtListed(assets).catch(() => false) : Promise.resolve(false);
   const threePromise = artListed.then((ok) => (ok ? loadThree() : null)).catch(() => null);
@@ -225,7 +231,7 @@ export async function createFieldView(host, options = {}) {
   world.addChild(layers.ground, layers.anim, layers.overlay, layers.shadow, layers.groundFx, layers.fxNormal, layers.units, layers.fxAdd, layers.bars, layers.text);
   stage.addChild(backdrop, world, layers.screen);
 
-  const bg = backdropTextures();
+  let bg = backdropTextures(theme);
   const bgGrad = new P.Sprite(bg.gradient);
   const bgGrid = new P.TilingSprite(bg.grid, s0.width, s0.height);
   bgGrid.alpha = 0.9;
@@ -237,6 +243,16 @@ export async function createFieldView(host, options = {}) {
   bgMountains2.alpha = 1;
   const bgVignette = new P.Sprite(bg.vignette);
   backdrop.addChild(bgGrad, bgMountains, bgMountains2, bgGrid, bgVignette);
+  /** Backdrop look of the board theme: the sand board's warm canyon haze and cliffs, no grid. */
+  function themeBackdrop() {
+    bg = backdropTextures(theme);
+    bgGrad.texture = bg.gradient;
+    const sand = theme === 'sand';
+    bgGrid.visible = !sand;
+    bgMountains.tint = sand ? 0x8a5f3c : 0x1d2b28;
+    bgMountains2.tint = sand ? 0x5e3f27 : 0x121a18;
+  }
+  themeBackdrop();
   let mountainsAsked = false;
   /** The backdrop's mountain silhouette (optional art; asked again when the manifest arrives late). */
   function loadMountains() {
@@ -325,6 +341,7 @@ export async function createFieldView(host, options = {}) {
   };
   const tiles = new TileField({ ground: layers.ground, overlay: layers.overlay, props: layers.units, anim: layers.anim });
   setupCleanup.push(() => tiles.destroy());
+  tiles.setTheme(theme);
   const fx = new FxSystem({
     P, layers, cam: () => cam, settings, assets, heightAt, redVignette: bg.red, surfaceLayer: ctx.surfaceLayer,
     timeScale: () => ctx.timeScale(),
@@ -346,7 +363,7 @@ export async function createFieldView(host, options = {}) {
   const impostors = new ImpostorAtlas(app.renderer);
   setupCleanup.push(() => impostors.destroy());
   ctx.impostors = impostors;
-  tiles.setView(bandFor('prep'), camRect(), fieldRows('prep'));
+  tiles.setView(bandFor('prep'), camRect(), fieldRows('prep'), boardArea('prep'));
   // the real board art of the local client (optional): wait briefly so the first frame already uses it; a late
   // arrival swaps the atlas in place
   const artPromise = loadBoardArt(assets).then((art) => {
@@ -538,7 +555,7 @@ export async function createFieldView(host, options = {}) {
     if (o.instant || camMs === 0 || mode === 'idle' && !camTo) {
       board3d?.setArea(boardArea(vk));
       cam = target; camFrom = camTo = null;
-      tiles.setView(band, focus, field);
+      tiles.setView(band, focus, field, boardArea(vk));
       setPenHidden(!penShown(vk));
       setLeaderHidden(!leaderShown(vk));
       pendingView = null;
@@ -547,7 +564,7 @@ export async function createFieldView(host, options = {}) {
       camTo = target;
       camT0 = performance.now();
       // keep both fields drawn (and lit) while the camera flies between them
-      tiles.setView([Math.min(prevBand[0], band[0]), Math.max(prevBand[1], band[1])], focus, [Math.min(prevField[0], field[0]), Math.max(prevField[1], field[1])]);
+      tiles.setView([Math.min(prevBand[0], band[0]), Math.max(prevBand[1], band[1])], focus, [Math.min(prevField[0], field[0]), Math.max(prevField[1], field[1])], unionAreas(boardArea(prevView), boardArea(vk)));
       board3d?.setArea(unionAreas(boardArea(prevView), boardArea(vk)));
       setPenHidden(!penShown(vk, prevView));
       setLeaderHidden(!leaderShown(vk, prevView));
@@ -584,7 +601,7 @@ export async function createFieldView(host, options = {}) {
     if (k >= 1) {
       cam = camTo; camFrom = camTo = null;
       if (pendingView) {
-        tiles.setView(pendingView.band, pendingView.focus, pendingView.field);
+        tiles.setView(pendingView.band, pendingView.focus, pendingView.field, pendingView.area);
         board3d?.setArea(pendingView.area);
         setPenHidden(!pendingView.pen);
         setLeaderHidden(!pendingView.leader);
@@ -621,6 +638,8 @@ export async function createFieldView(host, options = {}) {
   function setStage(st) {
     if (!st || typeof st !== 'object' || !Array.isArray(st.rows)) return false;
     stageRec = st;
+    const th = boardThemePreference(opts.theme, seasonOf());
+    if (th !== theme) { theme = th; tiles.setTheme(th); themeBackdrop(); }
     tiles.setStage(st);
     tiles.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null);
     if (board3d) { board3d.setStage(st); board3d.setBattleRect(mode === 'battle' && battleMeta ? battleMeta.rect : null); }

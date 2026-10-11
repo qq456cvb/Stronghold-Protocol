@@ -72,7 +72,8 @@ export function phaseBanner(phase, pub, { alive = true, spectator = false } = {}
 }
 
 // ---- the round's result box and 战斗结束 sound (GitHub #235; PR #112 by @Convey123) ------------------------------------
-// The official round result dialog (research 09 §3.1 "Round result dialog"): 「作战结束」 with 「全员无伤！」, or
+// The official round result dialog (research 09 §3.1 "Round result dialog"): 「作战结束」 with 「完美作战!」 (the wording of
+// every 盟约 recording — research 09 read 「全员无伤！」 from the client strings), or
 // 「生命值减少」 and the LP lost — official words only (the owner's review of PR #112, 2026-10-05: the
 // remake's own 「联防成功 / 联防失败：还有 N 只突破防线」 line is not in the official dialog). screens/game.js shows it
 // (ui/components.js ResultDialog) and plays the matching BATTLEOVER sound when SETTLE starts — the moment is [ASSUMED]:
@@ -119,7 +120,7 @@ export function battleOverSfx(cost, uniteLoss = null) {
 }
 
 /**
- * The official round result dialog for the viewer's own LP charge `loss`: 「作战结束」 + 「全员无伤！」 (mint) at 0, else
+ * The official round result dialog for the viewer's own LP charge `loss`: 「作战结束」 + 「完美作战!」 (mint) at 0, else
  * 「生命值减少 −N」 (red).
  * @param {number} loss
  * @returns {{ title: string, micro: string, tone: string, sub: string, duration: number }}
@@ -127,7 +128,7 @@ export function battleOverSfx(cost, uniteLoss = null) {
 export function roundResultBox(loss) {
   const n = Math.max(0, Math.trunc(Number(loss) || 0));
   return n === 0
-    ? { title: t('作战结束'), micro: 'BATTLE OVER', tone: 'mint', sub: t('全员无伤！'), duration: RESULT_BOX_MS }
+    ? { title: t('作战结束'), micro: 'BATTLE OVER', tone: 'mint', sub: t('完美作战!'), duration: RESULT_BOX_MS }
     : { title: t('作战结束'), micro: 'BATTLE OVER', tone: 'red', sub: t('生命值减少 −{n}', { n }), duration: RESULT_BOX_MS };
 }
 
@@ -136,8 +137,8 @@ export function roundResultBox(loss) {
  * viewer (m.public.uniteResult.losses — in a 联防 a leaker pays for the survivors, not for its own battle's leaks, so the
  * client cannot work it out). The official words only, and only when they are true:
  *   生命值减少 −N  the round charged the viewer N (red);
- *   全员无伤！     nothing got through (`through` 0): nobody paid, true for every participant (mint);
- *   title alone   the 联防 leaked but the viewer was not charged (a helper, a spared leaker — 全员无伤！ would claim the
+ *   完美作战!      nothing got through (`through` 0): nobody paid, true for every participant (mint);
+ *   title alone   the 联防 leaked but the viewer was not charged (a helper, a spared leaker — 完美作战! would claim the
  *                 teammate who paid was unharmed too, and the official dialog has no other line; orange). Also the
  *                 reading of a view without `losses`, which never falls back to the own battle's leaks.
  * A viewer `losses` does not list — a spectator seat, a player eliminated before the round — gets no box, as in a

@@ -42,6 +42,52 @@ export const VENDOR_FILES = Object.freeze([
   ['node_modules/three/build/three.module.js', 'three.module.js', true],
 ]);
 
+/**
+ * The CJK UI font, self-hosted (DESIGN §10): Noto Sans SC — the open-licence release (SIL OFL 1.1) of the Source Han Sans
+ * design the official client's Chinese UI uses — from @fontsource/noto-sans-sc, the weights the stylesheets use. Browsers
+ * fetch only the unicode-range slices of the characters on screen. Without it (Google Fonts unreachable, as from
+ * mainland China) the UI fell back to the system font — Microsoft YaHei / PingFang — which reads clearly unlike the game.
+ * Written to public/vendor/fonts/noto-sans-sc/: noto-sans-sc.css (the @font-face rules, woff2 only) + files/ + LICENSE.
+ */
+export const VENDOR_FONT = Object.freeze({
+  pkg: 'node_modules/@fontsource/noto-sans-sc', dir: 'fonts/noto-sans-sc', css: 'noto-sans-sc.css', weights: Object.freeze([400, 500, 700, 900]),
+});
+
+/**
+ * One weight's fontsource stylesheet reduced to woff2 sources (every browser the client supports reads woff2), and the
+ * file names it references.
+ * @param {string} css
+ * @returns {{ css: string, files: string[] }}
+ */
+export function woff2Only(css) {
+  const files = [];
+  const out = css.replace(/src:\s*([^;]+);/g, (_, list) => {
+    const m = list.match(/url\((?:\.\/)?files\/([^)]+\.woff2)\)\s*format\(['"]woff2['"]\)/);
+    if (!m) return `src: ${list};`;
+    files.push(m[1]);
+    return `src: url(./files/${m[1]}) format('woff2');`;
+  });
+  return { css: out, files };
+}
+
+function vendorFont({ log, warn }) {
+  const pkg = join(root, VENDOR_FONT.pkg);
+  if (!existsSync(pkg)) { warn(`vendor: ${VENDOR_FONT.css} skipped (${VENDOR_FONT.pkg} not installed; the UI uses the system CJK font)`); return null; }
+  const dir = join(out, VENDOR_FONT.dir);
+  mkdirSync(join(dir, 'files'), { recursive: true });
+  const parts = [`/* Noto Sans SC (SIL Open Font License 1.1, see LICENSE) — copied from @fontsource/noto-sans-sc by tools/vendor.mjs */`];
+  let n = 0;
+  for (const w of VENDOR_FONT.weights) {
+    const { css, files } = woff2Only(readFileSync(join(pkg, `${w}.css`), 'utf8'));
+    for (const f of files) { copyFileSync(join(pkg, 'files', f), join(dir, 'files', f)); n++; }
+    parts.push(css);
+  }
+  writeFileSync(join(dir, VENDOR_FONT.css), parts.join('\n'));
+  if (existsSync(join(pkg, 'LICENSE'))) copyFileSync(join(pkg, 'LICENSE'), join(dir, 'LICENSE'));
+  log(`vendor: ${VENDOR_FONT.dir}/${VENDOR_FONT.css} (${n} woff2 slices)`);
+  return `${VENDOR_FONT.dir}/${VENDOR_FONT.css}`;
+}
+
 export function vendor({ log = console.log, warn = console.warn } = {}) {
   mkdirSync(out, { recursive: true });
   const done = [];
@@ -53,6 +99,8 @@ export function vendor({ log = console.log, warn = console.warn } = {}) {
     done.push(dst);
     log('vendor:', dst);
   }
+  const font = vendorFont({ log, warn });
+  if (font) done.push(font);
   return done;
 }
 

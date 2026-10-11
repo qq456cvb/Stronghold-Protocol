@@ -31,6 +31,12 @@ export const GLYPH = Object.freeze({
   i: { mat: 'infection', h: null },
 });
 
+/**
+ * Board theme of a season (data/config.json `season`; render/textures.js BOARD_THEMES): the 盟约 season plays on the
+ * sand board (every 盟约 recording, the act1 and act2 layouts alike, and the in-game guide pages); others the default.
+ */
+export const SEASON_THEME = Object.freeze({ act2autochess: 'sand' });
+
 /** tileKey (when a stage uses glyphs outside the legend) → glyph. */
 export const TILEKEY_GLYPH = Object.freeze({
   tile_forbidden: '#', tile_road: 'r', tile_floor: 'f', tile_wall: 'h', tile_fence_bound: 'b', tile_fence: 'b',

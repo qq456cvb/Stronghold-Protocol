@@ -130,18 +130,18 @@ describe('phases', () => {
     assert.equal(ownRoundLoss(null), null);
     assert.equal(ownRoundLoss({ cap: 10 }), null, 'no leaks seen → no figure at all');
   });
-  test('round result box: the official words — 作战结束 + 全员无伤！ (mint) / 生命值减少 −N (red)', () => {
+  test('round result box: the official words — 作战结束 + 完美作战! (mint) / 生命值减少 −N (red)', () => {
     assert.equal(RESULT_BOX_MS, 2800, 'inside SETTLE\'s 3 s (server DELAYS.SETTLE)');
-    assert.deepEqual(roundResultBox(0), { title: '作战结束', micro: 'BATTLE OVER', tone: 'mint', sub: '全员无伤！', duration: RESULT_BOX_MS });
+    assert.deepEqual(roundResultBox(0), { title: '作战结束', micro: 'BATTLE OVER', tone: 'mint', sub: '完美作战!', duration: RESULT_BOX_MS });
     assert.deepEqual(roundResultBox(4), { title: '作战结束', micro: 'BATTLE OVER', tone: 'red', sub: '生命值减少 −4', duration: RESULT_BOX_MS });
-    assert.equal(roundResultBox(undefined).sub, '全员无伤！', 'an unknown loss reads as no loss');
-    assert.equal(roundResultBox(-2).sub, '全员无伤！');
+    assert.equal(roundResultBox(undefined).sub, '完美作战!', 'an unknown loss reads as no loss');
+    assert.equal(roundResultBox(-2).sub, '完美作战!');
     assert.equal(roundResultBox(2.7).sub, '生命值减少 −2');
     // through t(): the English pack (public/i18n/en.json — no official EN wording in the data, a plain translation)
     try {
       setMessages('en', JSON.parse(readFileSync(path.join(ROOT, 'public/i18n/en.json'), 'utf8')));
       setLang('en');
-      assert.deepEqual([roundResultBox(0).title, roundResultBox(0).sub, roundResultBox(3).sub], ['Battle over', 'All unharmed!', 'LP reduced by 3']);
+      assert.deepEqual([roundResultBox(0).title, roundResultBox(0).sub, roundResultBox(3).sub], ['Battle over', 'Perfect Battle!', 'LP reduced by 3']);
     } finally { setLang('zh'); setMessages('en', {}); }
   });
   test('联防 result box: the viewer\'s own charge from the authority, the official words only when true', () => {
@@ -149,15 +149,15 @@ describe('phases', () => {
     // the leaker reads the LP settlement actually charged — word for word an ordinary round's box
     assert.deepEqual(uniteResultBox(res, 'p_0'), roundResultBox(3));
     assert.equal(uniteResultBox(res, 'p_0').sub, '生命值减少 −3');
-    // a helper was spared, but the 联防 leaked and a teammate paid: 全员无伤！ would claim that teammate was unharmed, and
+    // a helper was spared, but the 联防 leaked and a teammate paid: 完美作战! would claim that teammate was unharmed, and
     // the official dialog has no other line (the remake's 「联防失败：还有 N 只突破防线」 was dropped in the owner's review
     // of PR #112) — the official title alone, orange (player report 2026-10-06 on PR #112)
     const helper = uniteResultBox(res, 'p_1');
     assert.equal(helper.title, '作战结束');
     assert.equal(helper.tone, 'orange');
-    assert.equal(helper.sub, '', 'no 全员无伤！ while a teammate was charged');
+    assert.equal(helper.sub, '', 'no 完美作战! while a teammate was charged');
     assert.ok(!/联防成功|联防失败|突破防线/.test(JSON.stringify(helper)), 'no 联防 verdict line');
-    // nothing got through: nobody paid, so 全员无伤！ is true for leaker and helper alike — the only 联防 case that says it
+    // nothing got through: nobody paid, so 完美作战! is true for leaker and helper alike — the only 联防 case that says it
     const cleared = { through: 0, helpers: ['p_1', 'p_2'], leakers: ['p_0'], losses: { p_0: 0, p_1: 0, p_2: 0 } };
     assert.deepEqual(uniteResultBox(cleared, 'p_0'), roundResultBox(0));
     assert.deepEqual(uniteResultBox(cleared, 'p_1'), roundResultBox(0));
@@ -184,7 +184,7 @@ describe('phases', () => {
     assert.equal(noLosses.tone, 'orange', 'no LP known → not read as a loss');
     assert.equal(uniteResultBox({ through: 0, helpers: ['p_1'], leakers: ['p_0'] }, 'p_1').sub, '');
   });
-  test('作战 result box (no 联防): 全员无伤！ without a leak, min(cap, leaks) otherwise, nothing without a battle', () => {
+  test('作战 result box (no 联防): 完美作战! without a leak, min(cap, leaks) otherwise, nothing without a battle', () => {
     assert.deepEqual(battleResultBox({ leaks: 0, cap: 10 }), roundResultBox(0));
     const bad = battleResultBox({ leaks: 3, cap: 10 });
     assert.equal(bad.title, '作战结束');

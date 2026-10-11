@@ -30,7 +30,7 @@
 // units, FX and hit-testing use, so both layers agree on every height. No meshes, Graphics props or anim sprites
 // are built; switching back (WebGL context lost, art missing) rebuilds the 2D board.
 
-import { tileAtlas, fxAtlas, rng, groundTexture } from './textures.js';
+import { tileAtlas, fxAtlas, rng, groundTexture, boardThemeOf } from './textures.js';
 import { GLYPH, TILEKEY_GLYPH, TILE_H, COLORS, ORIGINIUM } from './style.js';
 import { parsePenRect, PEN_RECT } from './pen.js';
 
@@ -98,7 +98,7 @@ const SIDE_MAT = {
  * `field` = [f0, f1] rows of the active field — drawn rows outside it are dim, non-playable scenery (e.g. the enemy
  * preview pen behind the normal field, or the normal field behind the boss field).
  */
-export function parseStage(stage, band = [0, ROWS - 1], field = [0, 13]) {
+export function parseStage(stage, band = [0, ROWS - 1], field = [0, 13], area = null) {
   const rows = Array.isArray(stage?.rows) ? stage.rows : [];
   const legend = stage && typeof stage.tiles === 'object' && stage.tiles ? stage.tiles : {};
   const grid = [];
@@ -136,8 +136,9 @@ export function parseStage(stage, band = [0, ROWS - 1], field = [0, 13]) {
       t.dist = best;
     }
   }
+  const inArea = (r, c) => !Array.isArray(area) || area.some((a) => a && r >= a.r0 && r <= a.r1 && c >= a.c0 && c <= a.c1);
   for (const row of grid) for (const t of row) {
-    t.drawn = t.inBand && (t.dist <= PLAYABLE_DIST || (t.scenery && t.glyph !== '#'));
+    t.drawn = t.inBand && (t.dist <= PLAYABLE_DIST || (t.scenery && t.glyph !== '#')) && inArea(t.r, t.c);
     t.alpha = t.dist === 0 ? 1 : t.dist === 1 ? 0.92 : 0.5;
     if (t.glyph === '#' && t.dist >= 2) t.mat = 'margin';
   }
@@ -232,6 +233,7 @@ export class TileField {
     const P = globalThis.PIXI;
     this.P = P;
     this.layers = layers;
+    this.theme = 'default';        // board theme (textures.js BOARD_THEMES)
     this.atlas = tileAtlas();
     this.art = null;
     this.stage = null;
@@ -253,6 +255,7 @@ export class TileField {
     layers.anim.addChild(this.animLayer);
     this.highlights = new Map();   // group → { tiles: [[r,c]], style }
     this.devices = [];             // Graphics props { dev, gfx, row, col, role } (mounds, bushes)
+    this.decor = [];               // sand board scenery: { gfx, row, col, kind, seed } (cacti, rocks)
     this.devBoxes = [];            // textured box props (in the row meshes) { dev, row, col, role }
     this.blowers = [];             // { dev, row, col, dir } airflow sources
     this.animSprites = [];         // { sprite, r, c, kind, phase }
@@ -266,6 +269,7 @@ export class TileField {
     this.band = [0, ROWS - 1];
     this.field = [0, 13];
     this.focus = null;
+    this.area = null;              // tile rects the sand board is limited to (setView)
     this.boxMeshes = new Set();    // live BoxMesh instances (re-textured on art swaps)
     this.external = false;         // true: the 3D board layer draws the board (see header)
   }
@@ -286,6 +290,8 @@ export class TileField {
     this.meshes = []; this.rowMeshes = new Map(); this.rowSurfaces = new Map(); this.mesh = null; this.plane = null;
     for (const d of this.devices) d.gfx.destroy();
     this.devices = [];
+    for (const d of this.decor) d.gfx.destroy();
+    this.decor = [];
     for (const a of this.animSprites) a.sprite.destroy();
     this.animSprites = [];
     for (const b of this.boxes) b.g.destroy();
@@ -294,18 +300,22 @@ export class TileField {
   }
 
   /**
-   * Rows drawn (`band` [r0, r1]) and the focused rect (tiles outside it are dimmed). Rebuilds the geometry only
-   * when something changed.
+   * Rows drawn (`band` [r0, r1]) and the focused rect (tiles outside it are dimmed). `area` (board3d/layout.js
+   * AREAS: the tile rects the official client builds for the phase) limits the sand board to them, as the 3D board
+   * is — the other player's half then gives way to the desert and the lake; the default board draws the whole band.
+   * Rebuilds the geometry only when something changed.
    */
-  setView(band, focus, field) {
+  setView(band, focus, field, area = null) {
     const b = Array.isArray(band) ? [Math.max(0, band[0] | 0), Math.min(ROWS - 1, band[1] | 0)] : [0, ROWS - 1];
     const fb = Array.isArray(field) ? [field[0] | 0, field[1] | 0] : [b[0], Math.min(b[1], 13)];
     const f = focus ? { r0: focus.r0, r1: focus.r1, c0: focus.c0, c1: focus.c1 } : null;
+    const a = Array.isArray(area) && area.length ? area.map((x) => ({ r0: x.r0, r1: x.r1, c0: x.c0, c1: x.c1 })) : null;
     const same = b[0] === this.band[0] && b[1] === this.band[1] && fb[0] === this.field[0] && fb[1] === this.field[1] &&
-      JSON.stringify(f) === JSON.stringify(this.focus);
+      JSON.stringify(f) === JSON.stringify(this.focus) && JSON.stringify(a) === JSON.stringify(this.area);
     this.band = b;
     this.field = fb;
     this.focus = f;
+    this.area = a;
     if (!same && this.stage) this._rebuild();
   }
 
@@ -317,12 +327,30 @@ export class TileField {
     const next = art && art.images ? art : null;
     if ((next?.key || '') === (this.art?.key || '') && this.shader) return;
     this.art = next;
-    this.atlas = tileAtlas(next);
+    this._retexture();
+  }
+
+  /**
+   * The board theme (textures.js BOARD_THEMES): 'sand' is the 盟约 season's desert board — its own materials, a
+   * desert floor with a lake beside the island, cacti and rocks on the blocks around the field, a warm haze.
+   */
+  setTheme(theme) {
+    const next = boardThemeOf(theme);
+    if (next === this.theme) return;
+    this.theme = next;
+    this._retexture();
+  }
+
+  /** Swap the atlas / ground textures after an art or theme change (same UV layout) and rebuild. */
+  _retexture() {
+    this.atlas = tileAtlas(this.art, this.theme);
     if (this.shader) this.shader.uniforms.uSampler = this.atlas.texture;
-    if (this.planeShader) this.planeShader.uniforms.uSampler = groundTexture(next?.images?.BG || null, next?.tiles?.backdrop?.crop);
+    if (this.planeShader) this.planeShader.uniforms.uSampler = this._groundTex();
     for (const b of this.boxMeshes) b.retexture();
     if (this.stage) this._rebuild();
   }
+
+  _groundTex() { return groundTexture(this.art?.images?.BG || null, this.art?.tiles?.backdrop?.crop, this.theme); }
 
   /** Tile info (always an object; off-grid → forbidden). */
   tile(r, c) { return this.grid[r]?.[c] || { r, c, glyph: '#', mat: 'forbid', h: 0, playable: false, drawn: false }; }
@@ -335,10 +363,13 @@ export class TileField {
 
   _rebuild() {
     const stage = this.stage;
-    this.grid = parseStage(stage, this.band, this.field);
+    this.grid = parseStage(stage, this.band, this.field, this.theme === 'sand' ? this.area : null);
     const F = this.focus;
+    // the enemy preview pen above the field is lit with it (the official views show its floor as bright as the field's)
+    const pen = parsePenRect(stage?.config?.enemy_place_rect) || PEN_RECT;
+    const inPen = (t) => t.r >= pen.r0 && t.r <= pen.r1 && t.c >= pen.c0 && t.c <= pen.c1;
     for (const row of this.grid) for (const t of row) {
-      t.focus = !F || (t.r >= F.r0 && t.r <= F.r1 && t.c >= F.c0 && t.c <= F.c1);
+      t.focus = !F || (t.r >= F.r0 && t.r <= F.r1 && t.c >= F.c0 && t.c <= F.c1) || (F.r1 <= 13 && F.r0 >= 6 && inPen(t));
     }
     // raised device tops (active platforms / mounds) change the standing height of their tile
     for (const d of this._stageDevices()) {
@@ -346,6 +377,29 @@ export class TileField {
       if (!t) continue;
       if (d.role === 'platform' || d.role === 'mound') t.devH = TILE_H.platform;
       else if (d.role === 'waterPlatform') t.devH = DEVICE_BOX.waterPlatform.height;
+    }
+    // the sand board's forbidden blocks are smooth sandstone, broken into rocks only along the item-slot row (the
+    // official board: the blocks either side of the white slabs are rubble, the field's edge blocks smooth); a forbidden
+    // run inside the field sinks to a pit at ground level unless it lies against the separator wall (interiorRuns)
+    if (this.theme === 'sand') {
+      for (const row of this.grid) {
+        const rubble = row.some((t) => t.glyph === 'A');
+        for (const t of row) if (t.glyph === '#' && t.mat === 'forbid') t.top = rubble ? 'forbid2' : 'forbid';
+      }
+      const runs = interiorRuns(this.grid);
+      for (const run of runs) if (!run.wall) for (const t of run.tiles) { t.mat = 'pit'; t.top = 'pit'; t.hClass = null; t.h = 0; }
+      // the official board's depth: taller sandstone blocks round the field (the rubble row keeps its height) and the
+      // deep-water channel sunk below the ground, its neighbours showing their walls
+      for (const row of this.grid) for (const t of row) {
+        if (t.glyph === '#' && t.hClass === 'forbid' && t.top === 'forbid') t.h = SAND_DEPTH.block;
+        else if (t.glyph === 'd') t.h = SAND_DEPTH.channel;
+      }
+      // a raised run against the separator wall breaks its middle block into rubble, at the run's height
+      for (const run of runs) {
+        if (!run.wall || run.tiles.length < 3) continue;
+        const mid = run.tiles[run.tiles.length >> 1];
+        if (mid.top === 'forbid') mid.top = 'forbid2';
+      }
     }
     const hs = new Set([0]);
     for (const row of this.grid) for (const t of row) if (t.drawn) hs.add(t.h + (t.devH || 0));
@@ -389,6 +443,8 @@ export class TileField {
   _buildQuads() {
     const uv = this.atlas.uv;
     const quads = buildTileQuads(this.grid, uv);
+    // the sand board's fences are raised wooden frames (the official board), not a painted border
+    if (this.theme === 'sand') fenceRimQuads(quads, uv, this.grid);
     for (const d of this.devBoxes) {
       if (!d.visible) continue;
       const spec = DEVICE_BOX[d.role];
@@ -425,12 +481,24 @@ export class TileField {
     this.mesh = null;
     const { ground, rows } = splitQuadGroups(this.quads);
     if (!this.shader) this.shader = P.Shader.from(VERT, FRAG, { uSampler: this.atlas.texture, uAlpha: 1 });
-    if (!this.planeShader) this.planeShader = P.Shader.from(VERT, FRAG, { uSampler: groundTexture(this.art?.images?.BG || null, this.art?.tiles?.backdrop?.crop), uAlpha: 1 });
+    if (!this.planeShader) this.planeShader = P.Shader.from(VERT, FRAG, { uSampler: this._groundTex(), uAlpha: 1 });
     // backdrop ground plane (under everything)
-    const plane = buildPlaneQuads(this.grid, this.art?.tiles?.backdrop?.tilesPerRepeat || 8);
+    // the sand board's desert floor stays sunlit far from the island; the grey board's falls into the dark
+    const sand = this.theme === 'sand';
+    const ao = planeOcclusion(this.grid, sand ? 0.78 : 0.42);
+    const plane = buildPlaneQuads(this.grid, this.art?.tiles?.backdrop?.tilesPerRepeat || 8, ao, sand ? 0.82 : 0.62);
     this.plane = this._makeMesh(plane, null, this.planeShader, true);
     this.meshes.push(this.plane);
     this.layers.ground.addChildAt(this.plane.mesh, 0);
+    // the sand board's lake beside the island, over the desert floor
+    if (sand) {
+      const water = buildWaterQuads(this.grid, this.atlas.uv, ao);
+      if (water.length) {
+        const wm = this._makeMesh(water, null, this.shader, true);
+        this.meshes.push(wm);
+        this.layers.ground.addChildAt(wm.mesh, 1);
+      }
+    }
     if (ground.length) {
       const m = this._makeMesh(ground, null, this.shader);
       this.meshes.push(m);
@@ -473,6 +541,7 @@ export class TileField {
   _light(cam) {
     const F = this.focus || { r0: 9, r1: 12, c0: 0, c1: 10 };
     return {
+      warm: this.theme === 'sand',
       fogNear: cam.dist * 0.75, fogFar: cam.dist * 1.7,
       lcx: (F.c0 + F.c1) / 2, lcy: (F.r0 + F.r1) / 2,
       lrx: Math.max(3, (F.c1 - F.c0) / 2 + 2.5), lry: Math.max(2.5, (F.r1 - F.r0) / 2 + 2.5),
@@ -576,6 +645,8 @@ export class TileField {
   _buildDevices() {
     for (const d of this.devices) d.gfx.destroy();
     this.devices = [];
+    for (const d of this.decor) d.gfx.destroy();
+    this.decor = [];
     this.devBoxes = [];
     this.blowers = [];
     const P = this.P;
@@ -588,6 +659,16 @@ export class TileField {
       gfx.sortableChildren = false;
       this.layers.props.addChild(gfx);
       this.devices.push({ dev, gfx, row, col, role: dev.role, dir: dev.dir || 'UP', seed: hash2(row, col), visible: true });
+    }
+    if (this.theme === 'sand' && !this.external) {
+      const taken = new Set(this._stageDevices().map((d) => `${d.pos[0]},${d.pos[1]}`));
+      // the near separator of a normal / 联防 field (row 6) stands in front of the bench: no scenery there
+      const front = this.field[0] > 0 ? this.field[0] : -1;
+      for (const { row, col, kind, seed } of decorSpots(this.grid, taken, front)) {
+        const gfx = new P.Graphics();
+        this.layers.props.addChild(gfx);
+        this.decor.push({ gfx, row, col, kind, seed });
+      }
     }
     this._applyBattleRect();
   }
@@ -627,6 +708,15 @@ export class TileField {
         default: break;
       }
     }
+    for (const d of this.decor) {
+      const g = d.gfx;
+      g.clear();
+      g.zIndex = rowDepthKey(cam, d.row) + ROW_KEY.devices;
+      const z0 = this.tile(d.row, d.col).h;
+      if (d.kind === 'cactus') drawCactus(g, cam, d.col, d.row, z0, d.seed);
+      else if (d.kind === 'picket') drawPicket(g, cam, d.col, d.row, z0, d.seed);
+      else drawRocks(g, cam, d.col, d.row, z0, d.seed);
+    }
   }
 
   // ---- animated terrain ------------------------------------------------------------------------------------
@@ -653,7 +743,8 @@ export class TileField {
       switch (t.glyph) {
         case 'g': add('smog', 'smoke', P.BLEND_MODES.NORMAL, 0xb8c4c0, 2); break;
         case 'd': add('sea', 'soft', P.BLEND_MODES.ADD, 0x5fe0ff, 1); break;
-        case 'i': add('infect', 'glow', P.BLEND_MODES.ADD, ORIGINIUM.glow, 1); break;
+        // the sand board's 活性源石 is a red mark on pale sand: a fainter, redder pulse
+        case 'i': add('infect', 'glow', P.BLEND_MODES.ADD, this.theme === 'sand' ? 0xe0505c : ORIGINIUM.glow, 1); break;
         case 'm': add('mire', 'dot', P.BLEND_MODES.ADD, 0xc8d890, 2); break;
         case 'I': case 'O': add('tel', 'ring', P.BLEND_MODES.ADD, 0xb36bff, 1); break;
         case 'S': if (r <= 12) add('gateGlow', 'glow', P.BLEND_MODES.ADD, COLORS.gateRed, 1); break;
@@ -696,7 +787,7 @@ export class TileField {
           break;
         }
         case 'sea': s.scale.set(px / 128 * 1.05, px / 128 * 0.62); s.alpha = 0.1 + 0.08 * Math.sin(t * 1.6 + a.phase); break;
-        case 'infect': s.scale.set(px / 128 * 1.2, px / 128 * 0.75); s.alpha = 0.22 + 0.16 * Math.sin(t * 2.2 + a.phase); break;
+        case 'infect': s.scale.set(px / 128 * 1.2, px / 128 * 0.75); s.alpha = (0.22 + 0.16 * Math.sin(t * 2.2 + a.phase)) * (this.theme === 'sand' ? 0.5 : 1); break;
         case 'mire': {
           const k = (t * 0.6 * a.sp + a.phase) % 1;
           s.scale.set(px / 32 * 0.12 * (0.4 + k));
@@ -778,6 +869,8 @@ export class TileField {
 
   destroy() {
     for (const d of this.devices) d.gfx.destroy();
+    for (const d of this.decor) d.gfx.destroy();
+    this.decor = [];
     for (const a of this.animSprites) a.sprite.destroy();
     for (const b of [...this.boxMeshes]) b.destroy();
     this.devices = [];
@@ -804,6 +897,8 @@ export function projectMesh(cam, m, light, p = { x: 0, y: 0, s: 0, depth: 0 }) {
   const camX = cam.tx;
   const pos = m.pos, uvq = m.uvq, col = m.col;
   const { fogNear, fogFar, lcx, lcy, lrx, lry } = light;
+  // the haze: cool and dark over the grey board, warm and light over the sand board
+  const fogDim = light.warm ? 0.26 : 0.42, fogR = light.warm ? 0.05 : -0.06, fogB = light.warm ? -0.1 : 0.05;
   const UVK = [[0, 1], [2, 1], [2, 3], [0, 3]]; // corner k → (u index, v index) of q.u, before rotation
   for (let i = 0; i < n; i++) {
     const q = qs[i];
@@ -829,11 +924,11 @@ export function projectMesh(cam, m, light, p = { x: 0, y: 0, s: 0, depth: 0 }) {
       const ddx = (pt[0] - lcx) / lrx, ddy = (pt[1] - lcy) / lry;
       const spot = 1 - 0.22 * Math.min(1, ddx * ddx + ddy * ddy);
       const ao = q.ao ? q.ao[k] : EXPOSURE;
-      const lum = q.shade * ao * (1 - 0.42 * fog) * spot;
-      col[vi * 4] = lum * (1 - 0.06 * fog);
+      const lum = q.shade * ao * (1 - fogDim * fog) * spot;
+      col[vi * 4] = lum * (1 + fogR * fog);
       col[vi * 4 + 1] = lum;
-      col[vi * 4 + 2] = lum * (1 + 0.05 * fog);
-      col[vi * 4 + 3] = q.alpha;
+      col[vi * 4 + 2] = lum * (1 + fogB * fog);
+      col[vi * 4 + 3] = q.va ? q.alpha * q.va[k] : q.alpha;
     }
   }
   const order = m.order;
@@ -868,13 +963,75 @@ export function boxQuads(quads, uv, cx, cy, z0, size, height, topMat, sideMat, o
 }
 
 /**
+ * Append the visible faces of a rectangular box [x0, x1] × [y0, y1] × [z0, z0 + height] (top + S/E/W sides) to `quads`
+ * — `boxQuads` for a bar instead of a square. `o`: { row, col (sort keys), alpha }.
+ */
+export function rectBoxQuads(quads, uv, x0, x1, y0, y1, z0, height, topMat, sideMat, o = {}) {
+  const zt = z0 + height;
+  const blank = (uv && uv.blank) || [0, 0, 0, 0];
+  const top = (uv && uv[topMat]) || blank, side = (uv && uv[sideMat]) || blank;
+  const base = { kind: 'block', row: o.row ?? Math.round((y0 + y1) / 2), col: o.col ?? Math.round((x0 + x1) / 2), alpha: o.alpha ?? 1 };
+  const cx = (x0 + x1) / 2;
+  quads.push({ ...base, pts: sidePts('S', x0, x1, y0, y1, zt, z0), u: side, shade: 0.86, order: 1, faceDir: 'S', fx: cx });
+  quads.push({ ...base, pts: sidePts('E', x0, x1, y0, y1, zt, z0), u: side, shade: 0.64, order: 1, faceDir: 'E', fx: x1 });
+  quads.push({ ...base, pts: sidePts('W', x0, x1, y0, y1, zt, z0), u: side, shade: 0.64, order: 1, faceDir: 'W', fx: x0 });
+  quads.push({ ...base, pts: [[x0, y1, zt], [x1, y1, zt], [x1, y0, zt], [x0, y0, zt]], u: top, shade: 1, order: 0, faceDir: 0, rot: o.rot | 0 });
+  return quads;
+}
+
+/** Heights (tiles) of the sand board's deeper relief: the smooth sandstone blocks, the sunken deep-water channel. */
+export const SAND_DEPTH = Object.freeze({ block: 0.42, channel: -0.14 });
+
+/** Wooden fence frame of the sand board: bar thickness and height (tiles). */
+export const FENCE_RIM = Object.freeze({ t: 0.16, h: 0.13 });
+
+/**
+ * The raised wooden frames of the sand board's fence tiles (`b`): four low bars round each drawn fence tile, their
+ * tops the deck's planks, sides wood; the tile itself stays a ground-level sand slab (a unit stands inside the frame).
+ * Sorted with the tile's row. → quads
+ */
+export function fenceRimQuads(quads, uv, G) {
+  const { t, h } = FENCE_RIM;
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    const g = G[r]?.[c];
+    if (!g || !g.drawn || g.glyph !== 'b') continue;
+    const x0 = c - 0.5, x1 = c + 0.5, y0 = r - 0.5, y1 = r + 0.5;
+    const o = { row: r, col: c, alpha: g.alpha };
+    const z0 = g.h;
+    rectBoxQuads(quads, uv, x0, x1, y1 - t, y1, z0, h, 'hand', 'fenceSide', o);          // far bar
+    rectBoxQuads(quads, uv, x0, x0 + t, y0 + t, y1 - t, z0, h, 'hand', 'fenceSide', { ...o, rot: 1 }); // left
+    rectBoxQuads(quads, uv, x1 - t, x1, y0 + t, y1 - t, z0, h, 'hand', 'fenceSide', { ...o, rot: 1 }); // right
+    rectBoxQuads(quads, uv, x0, x1, y0, y0 + t, z0, h, 'hand', 'fenceSide', o);          // near bar
+  }
+  return quads;
+}
+
+/**
  * Backdrop ground plane under the island (z = −CLIFF_DEPTH), textured with repeating concrete, with contact
  * shadows baked into the vertex shading near drawn tiles.
  */
-export function buildPlaneQuads(G, tilesPerRepeat = 5) {
+export function buildPlaneQuads(G, tilesPerRepeat = 5, ao = planeOcclusion(G), shade = 0.62) {
   const quads = [];
   const T = Math.max(1, Number(tilesPerRepeat) || 5);
   const z = -CLIFF_DEPTH;
+  const S = PLANE.cell;
+  for (let y = PLANE.y0; y < PLANE.y1; y += S) for (let x = PLANE.x0; x < PLANE.x1; x += S) {
+    const xa = x - 0.5, xb = x - 0.5 + S, ya = y - 0.5, yb = y - 0.5 + S;
+    quads.push({
+      kind: 'plane', row: y, col: x, order: 0, faceDir: 0, alpha: 1, shade,
+      pts: [[xa, yb, z], [xb, yb, z], [xb, ya, z], [xa, ya, z]],
+      u: [xa / T, -yb / T, xb / T, -ya / T],
+      ao: [ao(xa, yb), ao(xb, yb), ao(xb, ya), ao(xa, ya)],
+    });
+  }
+  return quads;
+}
+
+/**
+ * Contact shadow of the island on the ground plane: `(x, y) → shade factor`, cached per vertex — dark at the
+ * island's foot, then falling off towards `far` (the share of light left far from the island).
+ */
+export function planeOcclusion(G, far = 0.42) {
   // distance field (tiles) to the nearest drawn tile, sampled at vertices
   const drawn = [];
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (G[r]?.[c]?.drawn) drawn.push([c, r]);
@@ -888,18 +1045,67 @@ export function buildPlaneQuads(G, tilesPerRepeat = 5) {
     }
     const d = Math.sqrt(best);
     // contact shadow at the island's foot, then a slow falloff into the dark surroundings
-    return (1 - 0.6 * Math.exp(-d / 0.9)) * (0.42 + 0.58 * Math.exp(-d / 7));
+    return (1 - 0.6 * Math.exp(-d / 0.9)) * (far + (1 - far) * Math.exp(-d / 7));
   };
   const cache = new Map();
-  const ao = (x, y) => { const k = x * 1000 + y; let v = cache.get(k); if (v === undefined) { v = occl(x, y); cache.set(k, v); } return v; };
-  const S = PLANE.cell;
+  return (x, y) => { const k = x * 1000 + y; let v = cache.get(k); if (v === undefined) { v = occl(x, y); cache.set(k, v); } return v; };
+}
+
+/**
+ * Where the sand board's lake begins (world x) at world row y: east of the island's last drawn column `maxC` (a number,
+ * or a per-row function `(y) => col` that follows the island's outline), along a wavy shore.
+ */
+export function shoreX(maxC, y) {
+  const c = typeof maxC === 'function' ? maxC(y) : maxC;
+  return c + 1.6 + 0.45 * Math.sin(y * 0.9) + 0.25 * Math.sin(y * 2.3 + 1);
+}
+
+/**
+ * The island's east edge per world row: the last drawn column of the nearest rows that have drawn tiles (rows ±1
+ * around y, so the shore stays clear of a block's corner), smoothly blended between rows; -1 when nothing is drawn.
+ */
+export function islandEdge(G) {
+  const last = new Array(ROWS).fill(-1);
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (G[r]?.[c]?.drawn) last[r] = c;
+  const rows = last.map((c, r) => (c >= 0 ? r : -1)).filter((r) => r >= 0);
+  if (!rows.length) return () => -1;
+  const at = (r) => {
+    // the nearest row with drawn tiles (rows above / below the island keep its outermost rows' edge)
+    let best = rows[0];
+    for (const k of rows) if (Math.abs(k - r) < Math.abs(best - r)) best = k;
+    let m = last[best];
+    for (const k of [best - 1, best + 1]) if (k >= 0 && k < ROWS && last[k] > m) m = last[k];
+    return m;
+  };
+  return (y) => {
+    const r0 = Math.floor(y), t = y - r0;
+    return at(r0) * (1 - t) + at(r0 + 1) * t;
+  };
+}
+
+/**
+ * The lake beside the sand board's island: water cells (the atlas' `water` cell each) over the ground plane east of
+ * the drawn tiles — the shore follows the island's outline row by row (`islandEdge`: the field, then the wider pen
+ * above it) — fading in over a wavy shore (per-vertex alpha `va`). None when the island reaches the grid's east edge
+ * (the full-width 联防 / boss fields): the lake then lies off screen.
+ */
+export function buildWaterQuads(G, uv, ao = planeOcclusion(G)) {
+  let maxC = -1;
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (G[r]?.[c]?.drawn && c > maxC) maxC = c;
+  if (maxC < 0 || maxC >= COLS - 1) return [];
+  const edge = islandEdge(G);
+  const u = (uv && uv.water) || [0, 0, 0, 0];
+  const z = -CLIFF_DEPTH + 0.01, S = PLANE.cell, FADE = 1.4;
+  const quads = [];
+  const va = (x, y) => { const k = Math.max(0, Math.min(1, (x - shoreX(edge, y)) / FADE)); return k * k * (3 - 2 * k); };
   for (let y = PLANE.y0; y < PLANE.y1; y += S) for (let x = PLANE.x0; x < PLANE.x1; x += S) {
     const xa = x - 0.5, xb = x - 0.5 + S, ya = y - 0.5, yb = y - 0.5 + S;
+    const a = [va(xa, yb), va(xb, yb), va(xb, ya), va(xa, ya)];
+    if (a.every((v) => v <= 0)) continue;
     quads.push({
-      kind: 'plane', row: y, col: x, order: 0, faceDir: 0, alpha: 1, shade: 0.62,
+      kind: 'plane', row: y, col: x, order: 0, faceDir: 0, alpha: 1, shade: 1, va: a, u,
       pts: [[xa, yb, z], [xb, yb, z], [xb, ya, z], [xa, ya, z]],
-      u: [xa / T, -yb / T, xb / T, -ya / T],
-      ao: [ao(xa, yb), ao(xb, yb), ao(xb, ya), ao(xa, ya)],
+      ao: [ao(xa, yb), ao(xb, yb), ao(xb, ya), ao(xa, ya)].map((v) => 0.55 + 0.45 * v),
     });
   }
   return quads;
@@ -1130,6 +1336,150 @@ function drawBush(g, cam, cx, cy, z0, seed) {
     g.beginFill(i % 2 ? 0x3f7a3a : 0x2f6230, 0.95);
     g.drawCircle(p.x, p.y, s);
     g.endFill();
+  }
+}
+
+/**
+ * Forbidden runs inside a field of the sand board: a run of `#` along a row bounded on both ends by drawn, non-blocking
+ * tiles of the same half (cols 0–10 / 11–20). The official board (act1 m04 in the owner's P1 recording) sinks such a run
+ * to a pit at ground level (its row-9 run between the lanes) unless it lies against the separator wall (an `X` row next
+ * to it): that one stays raised sandstone, its middle block broken (row 12 between the crates) — on the maps no
+ * recording shows, the same rule [ASSUMED]. The blocks along the field's edges and between the two halves are not runs.
+ * → [{ tiles, wall }]
+ */
+export function interiorRuns(G) {
+  const out = [];
+  const open = (t) => !!t && t.drawn && t.glyph !== '#' && t.glyph !== 'X' && !t.scenery;
+  for (let r = 0; r < ROWS; r++) {
+    const row = G[r];
+    if (!row) continue;
+    for (const [c0, c1] of [[0, 10], [11, COLS - 1]]) {
+      let c = c0;
+      while (c <= c1) {
+        if (row[c]?.glyph !== '#') { c++; continue; }
+        let e = c;
+        while (e + 1 <= c1 && row[e + 1]?.glyph === '#') e++;
+        if (c > c0 && e < c1 && open(row[c - 1]) && open(row[e + 1])) {
+          const tiles = [];
+          for (let k = c; k <= e; k++) if (row[k].drawn) tiles.push(row[k]);
+          let wall = false;
+          for (let k = c; k <= e; k++) if (G[r - 1]?.[k]?.glyph === 'X' || G[r + 1]?.[k]?.glyph === 'X') wall = true;
+          if (tiles.length) out.push({ tiles, wall });
+        }
+        c = e + 1;
+      }
+    }
+  }
+  return out;
+}
+
+/** The forbidden tiles of the sand board that sink to ground-level pits (`interiorRuns` away from a wall). → the tiles */
+export function interiorPits(G) {
+  return interiorRuns(G).filter((run) => !run.wall).flatMap((run) => run.tiles);
+}
+
+/**
+ * Scenery of the sand board: cacti and rocks on some of the blocks around the field (forbidden blocks next to it,
+ * the separator walls) — never on a playable tile, a device, the faded margin or the row in front of the field
+ * (`front`: the field's near separator, where a cactus would stand in front of the bench and the shop bar). Picked by
+ * tile hash, so a board always looks the same; the separator walls also carry stretches of wooden picket fence.
+ * → [{ row, col, kind: 'cactus'|'rocks'|'picket', seed }]
+ */
+export function decorSpots(G, taken = new Set(), front = -1) {
+  const out = [];
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    const t = G[r]?.[c];
+    if (!t || !t.drawn || t.scenery || t.playable || t.dist !== 1 || r >= 14 || r <= front) continue;
+    if (t.glyph !== '#' && t.glyph !== 'X') continue;
+    if (taken.has(`${r},${c}`)) continue;
+    const h = hash2(r * 3 + 1, c * 7 + 2) % 13;
+    if (h === 0) out.push({ row: r, col: c, kind: 'cactus', seed: hash2(r, c) });
+    else if (h === 5) out.push({ row: r, col: c, kind: 'rocks', seed: hash2(c, r) });
+    else if (t.glyph === 'X' && (h === 2 || h === 9)) out.push({ row: r, col: c, kind: 'picket', seed: hash2(r + 7, c) });
+  }
+  return out;
+}
+
+/**
+ * A desert cactus (a trunk and one or two arms) standing on tile (cx, cy) at height z0 — drawn upright in screen
+ * space like the unit models (a billboard: projected heights would flatten it under the steep board camera).
+ */
+function drawCactus(g, cam, cx, cy, z0, seed) {
+  const R = rng(seed);
+  const base = cam.project(cx + (R() - 0.5) * 0.3, cy + (R() - 0.5) * 0.2, z0);
+  const u = base.s;                          // px per tile at the foot
+  const w = Math.max(3, u * 0.11);
+  const H = u * (0.38 + R() * 0.22);
+  const P = (dx, dy) => [base.x + dx * u, base.y - dy];
+  const stroke = (pts, width, color, alpha) => {
+    g.lineStyle({ width, color, alpha, cap: 'round', join: 'round' });
+    g.moveTo(pts[0][0], pts[0][1]);
+    for (let i = 1; i < pts.length; i++) g.lineTo(pts[i][0], pts[i][1]);
+  };
+  const limbs = [[P(0, 0), P(0, H)]];
+  const side = R() < 0.5 ? -1 : 1;
+  const a1 = H * (0.3 + R() * 0.15), l1 = 0.13 + R() * 0.05;
+  limbs.push([P(0, a1), P(side * l1, a1), P(side * l1, a1 + u * (0.16 + R() * 0.12))]);
+  if (R() < 0.7) {
+    const a2 = H * (0.45 + R() * 0.15), l2 = 0.1 + R() * 0.05;
+    limbs.push([P(0, a2), P(-side * l2, a2), P(-side * l2, a2 + u * (0.12 + R() * 0.1))]);
+  }
+  // contact shadow
+  g.lineStyle(0);
+  g.beginFill(0x5a3a1c, 0.28);
+  g.drawEllipse(base.x, base.y, w * 1.6, w * 0.55);
+  g.endFill();
+  for (const l of limbs) stroke(l, w + 2.5, 0x2f4a1f, 0.95);
+  for (const l of limbs) stroke(l, w, 0x5f8f3a, 1);
+  // the lit side
+  for (const l of limbs) stroke(l.map(([x, y]) => [x - w * 0.22, y]), Math.max(1, w * 0.28), 0x9cc46a, 0.7);
+  g.lineStyle(0);
+}
+
+/**
+ * A stretch of weathered wooden picket fence along the far half of tile (cx, cy) at height z0: two rails and a row of
+ * pointed slats, drawn upright in screen space like the cacti.
+ */
+function drawPicket(g, cam, cx, cy, z0, seed) {
+  const R = rng(seed);
+  const yW = cy + 0.18;
+  const a = cam.project(cx - 0.46, yW, z0), b = cam.project(cx + 0.46, yW, z0);
+  const u = (a.s + b.s) / 2, H = u * 0.3;
+  const n = 6, w = Math.max(2, ((b.x - a.x) / n) * 0.62);
+  // shadow on the block top
+  g.lineStyle(0);
+  g.beginFill(0x5a3a1c, 0.22);
+  g.drawPolygon([a.x, a.y, b.x, b.y, b.x + u * 0.06, b.y + u * 0.08, a.x + u * 0.06, a.y + u * 0.08]);
+  g.endFill();
+  // rails
+  for (const k of [0.35, 0.72]) {
+    g.beginFill(0x9c8566, 1);
+    g.drawPolygon([a.x, a.y - H * k - 2, b.x, b.y - H * k - 2, b.x, b.y - H * k + 2, a.x, a.y - H * k + 2]);
+    g.endFill();
+  }
+  // slats
+  for (let i = 0; i < n; i++) {
+    const t = (i + 0.5) / n, x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t;
+    const h = H * (0.9 + R() * 0.2);
+    g.beginFill(0x7d6a52, 1); g.drawRect(x - w / 2 + 1, y - h, w, h); g.endFill();
+    g.beginFill(0xd9c7a6, 1);
+    g.drawPolygon([x - w / 2, y, x - w / 2, y - h + w * 0.5, x, y - h, x + w / 2, y - h + w * 0.5, x + w / 2, y]);
+    g.endFill();
+    g.beginFill(0xffffff, 0.25); g.drawRect(x - w / 2, y - h + w * 0.5, Math.max(1, w * 0.3), h - w * 0.5); g.endFill();
+  }
+}
+
+/** A few sandstone rocks lying on tile (cx, cy) at height z0. */
+function drawRocks(g, cam, cx, cy, z0, seed) {
+  const R = rng(seed);
+  const n = 2 + ((R() * 2) | 0);
+  for (let i = 0; i < n; i++) {
+    const p = cam.project(cx + (R() - 0.5) * 0.5, cy + (R() - 0.5) * 0.4, z0);
+    const rx = p.s * (0.1 + R() * 0.08), ry = rx * 0.62;
+    g.lineStyle(0);
+    g.beginFill(0x6e4a28, 0.35); g.drawEllipse(p.x + rx * 0.15, p.y + ry * 0.35, rx * 1.05, ry * 0.8); g.endFill();
+    g.beginFill(0xb08354, 1); g.drawEllipse(p.x, p.y - ry * 0.4, rx, ry); g.endFill();
+    g.beginFill(0xe2c08c, 0.9); g.drawEllipse(p.x - rx * 0.25, p.y - ry * 0.65, rx * 0.55, ry * 0.45); g.endFill();
   }
 }
 

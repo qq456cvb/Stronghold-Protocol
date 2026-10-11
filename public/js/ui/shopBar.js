@@ -95,7 +95,10 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
   const lo = si ? standInLoadout(si, LOOKUPS.getChess, data.get('backups')) : c ? chessLoadout(c, priv?.loadout, dr ? diyGetter(LOOKUPS.getChess, priv, diyData) : LOOKUPS.getChess, { ops: priv?.ops ?? null, effects: data.get('effects') }) : null;
   const tap = () => { if (onTap) onTap(idx); else if (!disabled) onBuy(idx); else onDetail(slot.id, 'chess', hint); };
   const name = `${c?.name || t('干员')}${si ? t('（{note}）', { note: standInForText(c0.name) }) : ''}`;
-  const card = html`<button type="button" class=${cx('scard', `scard--t${tier}`, frozen && 'is-frozen', disabled && 'is-disabled', willMerge && 'is-merge', armed && 'is-armed', si && 'is-standin')}
+  // the official "you own this operator" sweep (every 盟约 recording): a gold wash rises over a card whose operator the
+  // player already has a copy of — css/screens/game-shop.css .scard__sweep
+  const owned = prog.copies > 0;
+  const card = html`<button type="button" class=${cx('scard', `scard--t${tier}`, frozen && 'is-frozen', disabled && 'is-disabled', willMerge && 'is-merge', owned && 'is-owned', armed && 'is-armed', si && 'is-standin')}
       onClick=${tap} onContextMenu=${(e) => { e.preventDefault(); onDetail(slot.id, 'chess', hint); }}
       aria-label=${`${t('{name}，价格 {price}', { name, price: slot.price })}${armed ? (disabled ? t('，无法购买') : t('，再次点击确认')) : ''}`} aria-pressed=${onTap ? String(!!armed) : undefined}>
     <span class="scard__bg" aria-hidden="true"></span>
@@ -125,6 +128,7 @@ export function ChessCard({ slot, idx, priv, frozen = false, reason = null, free
         <span>${c?.subProfessionName || ''}</span>
       </span>
     </span>
+    ${owned ? html`<span class="scard__sweep" aria-hidden="true"></span>` : null}
     ${willMerge ? html`<span class="scard__mergetag" title=${hint}>${t('可晋升')}</span>` : null}
     ${frozen ? html`<span class="scard__ice" aria-hidden="true"><${Icon} name="snow" /></span>` : null}
     ${armed ? html`<${ArmedTag} reason=${reason} free=${free} />` : null}
@@ -346,6 +350,8 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
   }
 
   const hk = { refresh: hotkeyLabelOf('refresh'), freeze: hotkeyLabelOf('freeze') }; // the player's keys (设置 → 快捷键)
+  // the official funds panel's plate (shopPanel/bg_open_1, downloaded with the HUD sprites); a plain box without it
+  const fundsBg = uiUrl(data.get('assets'), 'shopPanel/bg_open_1');
   return html`<section class=${cx('shopbar', frozen && 'is-frozen', !editable && 'is-locked', showReward && 'has-reward', armed && 'has-armed')} ref=${barRef} aria-label=${t('调度中心')}>
     <div class="shopbar__tools">
       <span class="shopbar__remain">${t('剩余可放置角色：')}<b class=${cx('num', remaining === 0 && 't-orange')}>${remaining}</b></span>
@@ -384,7 +390,7 @@ export function ShopBar({ priv, editable, collapsed, onCollapse, onBuy, onLevel,
           })
           : html`<${SoldCard} item=${true} />`}
       </div>
-      <div class="funds">
+      <div class=${cx('funds', fundsBg && 'has-art')} style=${fundsBg ? `--funds-bg: url("${fundsBg}")` : undefined}>
         <div class="funds__hex">
           <${CoinGlyph} class="funds__coin" />
           <b class="funds__num num">${funds}</b>

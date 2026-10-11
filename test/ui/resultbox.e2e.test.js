@@ -3,9 +3,9 @@
 //   SP_E2E=1 node --test test/ui/resultbox.e2e.test.js   → screenshots in test/e2e/out/resultbox-*.png
 //
 // The box wears the official dialog's words only (the owner's review of PR #112): title 作战结束, then the LP THIS
-// player was charged — 全员无伤！ / 生命值减少 −N — after a 联防 the authority's own per-player figure
+// player was charged — 完美作战! / 生命值减少 −N — after a 联防 the authority's own per-player figure
 // (m.public.uniteResult.losses). Asserted: `?phase=SETTLE&variant=unite` pops it for a leaker the helpers saved
-// (losses.p1 = 0, nothing got through → 全员无伤！), `unite,through` for the same leaker charged 3 (→ 生命值减少 −3, not
+// (losses.p1 = 0, nothing got through → 完美作战!), `unite,through` for the same leaker charged 3 (→ 生命值减少 −3, not
 // its own battle's leaks), `unite,through,helper` for a HELPER whose teammate paid (→ the official title alone),
 // `unite,dead` for a player not in the round (not in `losses` → no box at all); driving the harness' own COMBAT →
 // SETTLE switcher pops the round's own battle's box; the box is big, centred and click-through, closes by itself (and
@@ -91,7 +91,7 @@ describe('settlement result box in the browser', { skip: !ENABLED && 'set SP_E2E
     const ok = await boxState(page);
     // the mock's player p1 leaked and the helpers stopped every enemy: nothing got through, nobody was charged
     assert.equal(ok.title, '作战结束', JSON.stringify(ok));
-    assert.equal(ok.sub, '全员无伤！', 'the official line for this player\'s own LP, and nothing else');
+    assert.equal(ok.sub, '完美作战!', 'the official line for this player\'s own LP, and nothing else');
     assert.match(ok.micro, /BATTLE OVER/);
     assert.ok(ok.classes.includes('rdialog--mint'), `the held tone: ${ok.classes}`);
     assert.equal(ok.chevrons, 2);
@@ -117,13 +117,13 @@ describe('settlement result box in the browser', { skip: !ENABLED && 'set SP_E2E
     assert.deepEqual(t.problems, []);
     await t.page.close();
 
-    // p1 HELPED: the 联防 leaked and a teammate was charged 4 while p1 paid nothing — 全员无伤！ would be false for that
+    // p1 HELPED: the 联防 leaked and a teammate was charged 4 while p1 paid nothing — 完美作战! would be false for that
     // teammate and the official dialog has no other line, so the box keeps the official title alone
     const hp = await open('shot=1&phase=SETTLE&variant=unite,through,helper');
     await hp.page.waitForSelector('.rdialog', { timeout: 10000 });
     const spared = await boxState(hp.page);
     assert.equal(spared.title, '作战结束');
-    assert.equal(spared.sub, '', 'no 全员无伤！ while a teammate was charged');
+    assert.equal(spared.sub, '', 'no 完美作战! while a teammate was charged');
     assert.ok(spared.classes.includes('rdialog--orange'), `spared tone: ${spared.classes}`);
     await sleep(700); // the opening wipe done: the whole plate on the screenshot
     await hp.page.screenshot({ path: path.join(OUT, 'resultbox-unite-helper-spared.png') });
@@ -152,7 +152,7 @@ describe('settlement result box in the browser', { skip: !ENABLED && 'set SP_E2E
     await page.waitForSelector('.rdialog', { timeout: 8000 });
     const own = await boxState(page);
     assert.equal(own.title, '作战结束', `the round's own battle, no 联防: ${JSON.stringify(own)}`);
-    assert.equal(own.sub, '全员无伤！');
+    assert.equal(own.sub, '完美作战!');
     assert.ok(own.classes.includes('rdialog--mint'));
     await sleep(700); // the opening wipe done: the whole plate on the screenshot
     await page.screenshot({ path: path.join(OUT, 'resultbox-own-battle.png') });

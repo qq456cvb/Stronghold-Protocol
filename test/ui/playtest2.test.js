@@ -1,5 +1,5 @@
 // Regression tests (Node) of user playtest #2, UI items 6–10 + the loadout display (DESIGN §16):
-//   6  the enemy preview pen belongs to the pen camera only: bandFor / boardArea / penShown of render/app.js
+//   6  the enemy preview pen above the field in every normal view (reversed 2026-10-11): bandFor / boardArea / penShown
 //   8  the detail card docks on the side away from a selected unit's underframe — for every bench / temp / board tile
 //      at the official prep / Final Assault prep cameras of 10 viewports (16:9, 16:10, 21:9, 32:13.4, 4:3, 1280×720,
 //      1366×768, iPad landscape, 1024×768, 1440×900) the chosen slot never overlaps the underframe
@@ -22,31 +22,27 @@ import { skillRecordIconUrl } from '../../public/js/ui/assetUrls.js';
 const maxRow = (areas) => Math.max(...areas.map((a) => a.r1));
 const hit = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 
-describe('6: the enemy pen only with the pen camera', () => {
-  test('prep / battle / 联防 cameras draw no pen rows and build no pen area; the pen camera does', () => {
-    for (const k of ['prep', 'normal', 'unite']) {
-      assert.ok(bandFor(k)[1] <= 13, `${k}: 2D rows ${bandFor(k)}`);
-      // the field and its separator rows (row 13 carries devices blowing into the field, user playtest #5 item 6)
-      assert.ok(maxRow(boardArea(k)) <= 13, `${k}: 3D area rows ≤ 13 (no pen rows 14–18)`);
-      assert.equal(penShown(k), false, `${k}: pen figures hidden`);
+describe('6: the enemy pen above the field (the owner\'s request of 2026-10-11 reverses playtest #2 item 6)', () => {
+  test('prep / battle / 联防 cameras draw the pen rows and build the pen area, as the official views do', () => {
+    for (const k of ['prep', 'normal', 'unite', 'pen']) {
+      assert.deepEqual(bandFor(k), [6, 18], `${k}: 2D rows ${bandFor(k)}`);
+      assert.equal(maxRow(boardArea(k)), 18, `${k}: 3D area reaches the pen rows 14–18`);
+      assert.equal(penShown(k), true, `${k}: pen figures shown`);
     }
     for (const k of ['boss', 'hidden', 'bossPrep']) {
       assert.deepEqual(bandFor(k), [0, 13], k);
       assert.ok(maxRow(boardArea(viewKind(k))) <= 6, `${k}: boss field only`);
       assert.equal(penShown(viewKind(k)), false);
     }
-    assert.deepEqual(bandFor('pen'), [6, 18]);
-    assert.equal(maxRow(boardArea('pen')), 18);
     assert.equal(boardArea('pen'), AREAS.normal, 'the pen view keeps the field + pen block');
-    assert.equal(penShown('pen'), true);
-    // a camera flight to / from the pen shows it while it lasts
-    assert.equal(penShown('prep', 'pen'), true);
-    assert.equal(penShown('pen', 'prep'), true);
+    // a camera flight between the boss field and a normal view shows the pen while it lasts
+    assert.equal(penShown('bossPrep', 'prep'), true);
+    assert.equal(penShown('boss', 'bossPrep'), false);
   });
 
-  test('the field areas are the official ones minus the pen block', () => {
-    assert.deepEqual(boardArea('normal'), AREAS.normal.filter((a) => a.r1 <= 13));
-    assert.deepEqual(boardArea('unite'), AREAS.unite.filter((a) => a.r1 <= 13));
+  test('the field areas are the official ones (field + pen block)', () => {
+    assert.deepEqual(boardArea('normal'), AREAS.normal);
+    assert.deepEqual(boardArea('unite'), AREAS.unite);
     assert.ok(boardArea('normal').some((a) => a.r0 <= 6 && a.r1 >= 12 && a.c0 === 0 && a.c1 >= 10), 'own field + bench');
   });
 

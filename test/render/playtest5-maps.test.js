@@ -63,8 +63,10 @@ const VIEWS = ['prep', 'normal', 'unite', 'bossPrep', 'boss', 'pen'];
 
 describe('#6 act2 m01 blowers in every view', () => {
   test('repro: the normal / prep view builds the own field\'s row-13 blowers (cols 5, 9) above the wind lanes', () => {
-    // (plus the boss field's row-6 machines on the wall under the bench, as in v2.3 — they blow away from this field)
-    for (const vk of ['prep', 'normal']) assert.deepEqual(blowersIn3d(M01, vk), ['13,5', '13,9', '6,5', '6,9'], vk);
+    // (plus the boss field's row-6 machines on the wall under the bench, as in v2.3 — they blow away from this field —
+    // and, since the pen block above the field is built in these views (2026-10-11), the machine on the separator
+    // under the pen's right side (13,13), whose lane belongs to the other half)
+    for (const vk of ['prep', 'normal']) assert.deepEqual(blowersIn3d(M01, vk), ['13,13', '13,5', '13,9', '6,5', '6,9'], vk);
   });
 
   test('联防 builds both halves\' row-13 blowers; the Final Assault builds the four row-6 blowers', () => {
@@ -82,13 +84,14 @@ describe('#6 act2 m01 blowers in every view', () => {
       assert.equal(t.glyph, 'X');
       assert.ok(t.drawn && d.z0 === t.h && t.h > 0, 'on top of the drawn separator block');
       assert.equal(d.dir, 'DOWN');
-      // row 13: onto the built field's lanes (rows 12–10); row 6: into the boss field, which this view does not build
+      // row 13 over the own field: onto the built field's lanes (rows 12–10); row 6: into the boss field, and (13,13) into
+      // the other half — neither built in this view
       const onto = d.rangeTiles.slice(1).map(([r, c]) => !!b.grid[r][c].content);
-      assert.deepEqual(onto, d.r === 13 ? [true, true, true] : [false, false, false], `${d.r},${d.c}`);
+      assert.deepEqual(onto, d.r === 13 && d.c <= 10 ? [true, true, true] : [false, false, false], `${d.r},${d.c}`);
     }
-    // the separator row is built along the field's top edge (the pen rows 14–18 are still not)
+    // the separator row is built along the field's top edge, the pen rows 14–18 above it, nothing of the boss field
     const rows = new Set(b.grid.flat().filter((t) => t.drawn).map((t) => t.r));
-    assert.ok(rows.has(13) && !rows.has(14) && !rows.has(5), [...rows].join());
+    assert.ok(rows.has(13) && rows.has(14) && rows.has(18) && !rows.has(5), [...rows].join());
   });
 
   test('the 2D board draws the same blowers and airflow per view', async () => {

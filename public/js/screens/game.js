@@ -6,7 +6,7 @@
 // with the DOM HUD layered on top: top bar, bond strip + popup, team panel (click = g.watch), effects,
 // shop bar (prep), merge-reward and 机变 overlays, detail panel, enemy / match-info drawer, combat HUD
 // (DP, "作战结束，等待队友完成作战" + teammates' progress, observing pill, 联防 / 最终攻势 ‹ › camera halves),
-// phase banners, the round's result box at SETTLE (官方「作战结束」 + 「全员无伤！」 / 「生命值减少 −N」 and the BATTLEOVER sound;
+// phase banners, the round's result box at SETTLE (官方「作战结束」 + 「完美作战!」 / 「生命值减少 −N」 and the BATTLEOVER sound;
 // GitHub #235, PR #112), ticker, emote wheel + bubbles,
 // settings, exit flow. Drag & drop from the view: pieceDrop on a board tile (also the piece's own tile) opens the
 // direction wheel (ui/facingWheel.js, research 09 §1.2) and its release sends g.move {uid, to, dir} (g.art {…, dir}

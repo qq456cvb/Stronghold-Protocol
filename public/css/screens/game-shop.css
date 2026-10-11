@@ -5,7 +5,7 @@
    ========================================================================================== */
 
 .shopbar {
-  position: absolute; right: .26rem; bottom: .2rem;
+  position: absolute; right: 0; bottom: .12rem;
   display: flex; flex-direction: column; align-items: flex-end; gap: .1rem;
   animation: shop-up var(--t-slow) var(--ease-out);
 }
@@ -16,51 +16,53 @@
    on bench slots 5–9. */
 .gm__hud > .shopbar { pointer-events: none; }
 .shopbar__row, .shopbar__tools > button { pointer-events: auto; }
-.shopbar__tools { display: grid; grid-template-columns: auto auto; justify-content: end; align-items: center; gap: .06rem .12rem; }
+.shopbar__tools { display: grid; grid-template-columns: auto auto; justify-content: end; align-items: center; gap: .06rem .12rem; padding-right: .12rem; }
 .shopbar__remain {
   grid-column: 1 / -1; justify-self: end; pointer-events: none;
   font-size: .16rem; color: var(--text-md); padding: .04rem .14rem; background: rgba(8, 11, 10, .78);
   border-left: 3px solid var(--mint-500);
 }
 .shopbar__remain b { color: var(--mint-400); font-size: .2rem; margin-left: .04rem; }
+/* 冻结 / 刷新 as the official filled plates (every 盟约 recording): a light-blue 冻结 and a golden 刷新, each with its
+   glyph in a dark square, the refresh price on the plate's top edge. */
 .toolbtn {
-  --tb: var(--ice);
-  display: flex; align-items: center; gap: .08rem; height: .48rem; padding: 0 .14rem 0 .08rem;
-  background: rgba(8, 11, 10, .9); border: 2px solid var(--tb); color: var(--tb); font-size: .19rem; font-weight: 700; letter-spacing: .1em;
+  --tb: #8ed3f2; --tb-ink: #10283a; --tb-box: #1f5c80;
+  position: relative;
+  display: flex; align-items: center; gap: .1rem; height: .52rem; padding: 0 .16rem 0 .07rem; min-width: 1.6rem;
+  background: var(--tb); border: 2px solid rgba(255, 255, 255, .55); color: var(--tb-ink); font-size: .2rem; font-weight: 700; letter-spacing: .12em;
   box-shadow: 0 .04rem .14rem rgba(0, 0, 0, .45);
-  transition: background var(--t-fast), box-shadow var(--t-fast), transform var(--t-fast);
+  transition: background var(--t-fast), box-shadow var(--t-fast), transform var(--t-fast), filter var(--t-fast);
 }
-.toolbtn:hover:not(:disabled) { background: rgba(8, 11, 10, .9); background: color-mix(in srgb, var(--tb) 16%, rgba(8, 11, 10, .9)); box-shadow: 0 0 .18rem transparent; box-shadow: 0 0 .18rem color-mix(in srgb, var(--tb) 40%, transparent); }
+.toolbtn:hover:not(:disabled) { filter: brightness(1.08); box-shadow: 0 0 .22rem rgba(255, 255, 255, .25); }
 .toolbtn:active:not(:disabled) { transform: translateY(1px); }
-.toolbtn:disabled { --tb: var(--line-3); color: var(--text-dim); cursor: not-allowed; }
-.toolbtn__img { width: .34rem; height: .34rem; object-fit: contain; }
-.toolbtn .icon { width: .24rem; height: .24rem; }
-.toolbtn--amber { --tb: var(--amber); }
-.toolbtn--ice.is-on { background: var(--ice); color: #0b1822; }
-.toolbtn--ice.is-on kbd { color: #28435a; border-color: #5d88aa; }
-.toolbtn--ice.is-on:hover:not(:disabled) { background: #c2e5ff; color: #0b1822; box-shadow: 0 0 .22rem rgba(159, 212, 255, .6); }
-.toolbtn--ice.is-on kbd { background: rgba(255, 255, 255, .35) !important; }
+.toolbtn:disabled { filter: grayscale(.85) brightness(.55); cursor: not-allowed; }
+.toolbtn__img, .toolbtn > .icon { box-sizing: content-box; width: .28rem; height: .28rem; padding: .04rem; object-fit: contain; background: var(--tb-box); }
+.toolbtn .icon { width: .24rem; height: .24rem; color: #fff; }
+.toolbtn > span:not(.hex):not(.toolbtn__free) { flex: 1; text-align: center; }
+.toolbtn--amber { --tb: #f2c13a; --tb-ink: #2a1e05; --tb-box: #2b2a26; }
+.toolbtn--ice.is-on { --tb: #d4efff; --tb-box: #3a86b8; box-shadow: 0 0 .22rem rgba(159, 212, 255, .6), inset 0 0 .14rem rgba(80, 160, 220, .5); }
+.toolbtn--ice.is-on kbd { color: #28435a; border-color: #5d88aa; background: rgba(255, 255, 255, .35) !important; }
+.toolbtn kbd { color: var(--tb-ink); border-color: rgba(0, 0, 0, .35); background: rgba(255, 255, 255, .25); }
 .toolbtn__free { font-size: .13rem; padding: .01rem .06rem; background: var(--mint-500); color: var(--text-on-mint); letter-spacing: 0; }
-.toolbtn .hex { --hex-h: .26rem; }
+.toolbtn .hex { --hex-h: .3rem; position: absolute; top: -.2rem; left: 50%; transform: translateX(-50%); }
 
+/* The official shop (every 盟约 recording): no panel round the cards — the level card, the operator / item cards
+   (the official ≈ 150 × 175 px at 1280 × 720; 1.94rem wide here, so a full row — level card, five operators, an item,
+   the funds — still ends right of the 交流 / ⚙ / 📖 / ⛶ corner at 16:9) and the funds box stand side by side on the board,
+   anchored to the screen's right edge, the row growing leftwards with the slots. Its top edge stays where the prep camera expects it (HUD_REM.shopBarTop:
+   bottom .12rem + 2.52rem cards = 2.64rem, as the framed bar measured before). */
 .shopbar__row {
-  position: relative; display: flex; align-items: stretch; gap: .08rem; padding: .1rem;
-  background: linear-gradient(180deg, rgba(14, 19, 17, .94), rgba(8, 11, 10, .97));
-  border: 1px solid var(--line-2); border-top: 2px solid var(--mint-700);
-  box-shadow: 0 -.04rem .3rem rgba(0, 0, 0, .55);
-}
-.shopbar__row::before {
-  content: ''; position: absolute; left: 0; right: 0; top: -2px; height: 2px;
-  background: linear-gradient(90deg, var(--mint-400), transparent 30%, transparent 70%, var(--mint-400));
+  position: relative; display: flex; align-items: stretch; gap: .08rem; padding: 0;
+  filter: drop-shadow(0 .04rem .14rem rgba(0, 0, 0, .55));
 }
 .shopbar__cards { display: flex; gap: .08rem; }
 .shopbar__item { display: flex; gap: .08rem; padding-left: .08rem; border-left: 1px dashed var(--line-2); }
-.shopbar.is-frozen .shopbar__row { border-color: rgba(159, 212, 255, .5); border-top-color: var(--ice); }
+.shopbar.is-frozen .scard:not(.scard--sold) { border-color: rgba(159, 212, 255, .75); }
 .shopbar.is-locked .scard:not(.scard--sold) { filter: saturate(.55) brightness(.8); }
 
 /* ---- level card ---- */
 .lvcard {
-  position: relative; width: 1.24rem; height: 2.24rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .12rem;
+  position: relative; width: 1.58rem; height: 2.52rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .12rem;
   padding: .2rem .1rem .1rem; background: linear-gradient(180deg, #5fe0b9, #36b690); border: 0; color: var(--text-on-mint);
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - .14rem), calc(100% - .14rem) 100%, 0 100%);
   transition: filter var(--t-fast), transform var(--t-fast);
@@ -87,7 +89,7 @@
 .scard-wrap { display: flex; }
 .scard {
   --tc: var(--tier-1);
-  position: relative; width: 1.56rem; height: 2.24rem; padding: 0; overflow: hidden; text-align: left;
+  position: relative; width: 1.94rem; height: 2.52rem; padding: 0; overflow: hidden; text-align: left;
   display: flex; flex-direction: column; justify-content: flex-end;
   background: #151a18; border: 1px solid rgba(78, 216, 175, .35);
   transition: transform var(--t-fast) var(--ease-out), border-color var(--t-fast), box-shadow var(--t-fast);
@@ -109,7 +111,7 @@
 .scard__pips { display: flex; gap: .03rem; padding: .03rem .04rem; background: rgba(0, 0, 0, .6); }
 .scard__pips i { width: .07rem; height: .07rem; border: 1px solid var(--gold); transform: rotate(45deg); }
 .scard__pips i.on { background: var(--gold); }
-.scard__body { position: relative; z-index: 2; display: flex; flex-direction: column; gap: .03rem; padding: .3rem .08rem .08rem; background: linear-gradient(0deg, rgba(8, 11, 10, .98) 60%, transparent); }
+.scard__body { position: relative; z-index: 2; display: flex; flex-direction: column; gap: .04rem; padding: .36rem .1rem .1rem; background: linear-gradient(0deg, rgba(8, 11, 10, .98) 60%, transparent); }
 /* the loadout's skill (DESIGN §16) above the name; mint frame = not the default skill */
 .scard__skill { position: absolute; right: .07rem; top: -.02rem; width: .3rem; height: .3rem; display: grid; place-items: center;
   background: #0a0d0c; border: 1px solid var(--line-3); box-shadow: 0 1px 3px rgba(0, 0, 0, .8); }
@@ -122,13 +124,13 @@
 .scard__mod { position: absolute; right: 100%; bottom: 0; margin-right: .03rem; display: flex; align-items: center; gap: .02rem; font-family: var(--font-display); font-size: .1rem; line-height: 1.4; padding: 0 .04rem; background: rgba(0, 0, 0, .75); color: var(--gold-2); white-space: nowrap; }
 /* the official module type icon (local-client art, DESIGN §13); the type text stays beside it */
 .scard__skill .scard__modicon { flex: none; width: .14rem; height: .14rem; object-fit: contain; }
-.scard__name { font-size: .19rem; font-weight: 900; letter-spacing: .04em; color: #fff; text-shadow: 0 1px 3px #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.scard__bonds { display: flex; flex-wrap: wrap; gap: .02rem .08rem; }
-.scard__bond { display: inline-flex; align-items: center; gap: .03rem; font-size: .13rem; color: var(--mint-400); }
-.scard__bond .bglyph { width: .18rem; height: .18rem; }
+.scard__name { font-size: .21rem; font-weight: 900; letter-spacing: .04em; color: #fff; text-shadow: 0 1px 3px #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scard__bonds { display: flex; flex-wrap: wrap; gap: .02rem .1rem; order: -1; } /* the official card lists the bonds above the name */
+.scard__bond { display: inline-flex; align-items: center; gap: .04rem; font-size: .16rem; color: var(--mint-400); }
+.scard__bond .bglyph { width: .21rem; height: .21rem; }
 .scard__bond.is-off { color: var(--text-dim); text-decoration: line-through; text-decoration-color: rgba(255, 84, 84, .6); } /* the mode never activates it (标准) */
-.scard__class { display: flex; align-items: center; gap: .05rem; font-size: .13rem; color: var(--text-lo); }
-.scard__prof { width: .18rem; height: .18rem; object-fit: contain; opacity: .85; }
+.scard__class { display: flex; align-items: center; gap: .05rem; font-size: .15rem; color: var(--text-lo); }
+.scard__prof { width: .2rem; height: .2rem; object-fit: contain; opacity: .85; }
 .scard__mergetag { position: absolute; z-index: 3; right: 0; top: .38rem; font-size: .12rem; font-weight: 700; padding: .01rem .06rem; background: var(--gold); color: #1d1400; letter-spacing: .08em; }
 /* 0.2.0 补位: a chess the player does not own shows its stand-in (ui/shopBar.js ChessCard) — a small 「替补」 mark */
 .scard__standin { position: absolute; z-index: 3; left: 0; top: .38rem; max-width: calc(100% - .1rem); font-size: max(.11rem, 8px); font-weight: 700; line-height: 1.4;
@@ -143,17 +145,41 @@
 .shopbar.is-locked .scard:not(.scard--sold) { cursor: help; } /* not editable: a tap opens the detail */
 .scard.is-disabled .scard__art, .scard.is-disabled .scard__itemart { filter: grayscale(.7) brightness(.6); }
 .scard.is-merge { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(255, 198, 0, .6), 0 0 .2rem rgba(255, 198, 0, .3); }
+/* The official sweep over a card whose operator the player already owns (every 盟约 recording, e.g. the second 阿戈尔 card
+   of round 1): every 2.8 s a gold wash rises from the card's foot to its top in ≈ .75 s — over the art and the text,
+   which it brightens (screen blend) — while the frame turns gold, then it vanishes and the card rests ≈ 2 s. */
+.scard__sweep { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+.scard__sweep::before {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 170%;
+  background: linear-gradient(0deg, rgba(255, 186, 36, .9) 0%, rgba(255, 196, 60, .72) 48%, rgba(255, 210, 96, 0) 72%);
+  mix-blend-mode: screen; transform: translateY(100%); opacity: 0;
+  animation: scard-sweep 2.8s cubic-bezier(.4, 0, .6, 1) infinite;
+}
+.scard__sweep::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 0 2px #ffc93a; opacity: 0; animation: scard-sweep-frame 2.8s linear infinite; }
+@keyframes scard-sweep {
+  0% { transform: translateY(100%); opacity: 1; }
+  27% { transform: translateY(0); opacity: 1; }
+  33% { transform: translateY(0); opacity: 0; }
+  100% { transform: translateY(0); opacity: 0; }
+}
+@keyframes scard-sweep-frame { 0% { opacity: 0; } 6% { opacity: 1; } 29% { opacity: 1; } 34% { opacity: 0; } 100% { opacity: 0; } }
+.scard--sold .scard__sweep { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  /* no sweep: a still gold foot and frame say the same */
+  .scard__sweep::before { animation: none; transform: translateY(62%); opacity: .55; }
+  .scard__sweep::after { animation: none; opacity: .8; }
+}
 .scard.is-frozen::after { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
   background: linear-gradient(180deg, rgba(159, 212, 255, .28), rgba(159, 212, 255, .12) 50%, rgba(159, 212, 255, .34));
   box-shadow: inset 0 0 0 2px rgba(159, 212, 255, .8), inset 0 0 .3rem rgba(159, 212, 255, .5); }
 .scard__ice { position: absolute; left: 50%; bottom: .06rem; transform: translateX(-50%); z-index: 4; width: .3rem; height: .3rem; display: grid; place-items: center; background: #0c1a26; border: 1px solid var(--ice); color: var(--ice); }
 .scard__ice .icon { width: .2rem; height: .2rem; }
 .scard--item { --tc: var(--gold-2); }
-.scard__itemart { position: absolute; left: 50%; top: .38rem; transform: translateX(-50%); width: 1rem; height: 1rem; display: grid; place-items: center;
+.scard__itemart { position: absolute; left: 50%; top: .4rem; transform: translateX(-50%); width: 1.3rem; height: 1.3rem; display: grid; place-items: center;
   background: radial-gradient(circle, rgba(255, 198, 0, .16), transparent 70%); }
 .scard__itemart img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 .04rem .08rem #000); }
 .scard__itemart .icon { width: .6rem; height: .6rem; color: var(--gold-2); }
-.scard__idesc { font-size: .12rem; line-height: 1.45; color: var(--text-lo); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.scard__idesc { font-size: .14rem; line-height: 1.45; color: var(--text-lo); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .scard--sold { background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .02) 0 .08rem, transparent .08rem .16rem), rgba(8, 11, 10, .75); border: 1px dashed var(--line-2); justify-content: center; align-items: center; }
 .scard__soldtxt { display: flex; flex-direction: column; align-items: center; gap: .02rem; font-size: .16rem; color: var(--text-dim); }
 /* a slot the 调度中心's upgrade opened and nothing filled yet (ui/shopBar.js EmptyCard, also .scard--sold): the bare frame — no hatching,
@@ -161,7 +187,10 @@
 .scard--sold.scard--empty { background: rgba(8, 11, 10, .4); border-color: var(--line); }
 
 /* ---- funds card ---- */
-.funds { width: 1.18rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .08rem; padding: .06rem; border-left: 1px solid var(--line); }
+.funds { width: 1.4rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .1rem; padding: .08rem;
+  background: rgba(8, 11, 10, .88); border: 1px solid var(--mint-700); box-shadow: inset 0 0 .2rem rgba(23, 249, 183, .12); }
+/* the official plate (shopPanel/bg_open_1: a blueprint panel with the rook) under the funds; its own frame replaces ours */
+.funds.has-art { background: var(--funds-bg) center / 100% 100% no-repeat, rgba(8, 11, 10, .88); border-color: transparent; box-shadow: none; }
 .funds__hex {
   position: relative; width: 1rem; height: .9rem; display: flex; flex-direction: column; align-items: center; justify-content: center;
   background: linear-gradient(180deg, #2b2410, #16120a); color: var(--gold);
