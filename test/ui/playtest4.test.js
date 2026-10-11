@@ -256,9 +256,10 @@ describe('7: the detail card shows live stats against the base', () => {
 describe('1 / 5: the bench stays reachable on a notched phone; effect-only items say where they come from', () => {
   test('devices.css: the shop bar steps back over the HUD\'s bottom inset (it covered ~3/4 of bench pads 2–9)', () => {
     const css = read('public/css/devices.css');
-    assert.match(css, /\.gm__hud > \.shopbar \{ bottom: calc\(\.2rem - var\(--sa-b\)\); \}/);
-    // the shop's own rule stays the desktop place (.2rem from the bottom): the inset rule only cancels the HUD inset
-    assert.match(read('public/css/screens/game-shop.css'), /\.shopbar \{\n {2}position: absolute; right: \.26rem; bottom: \.2rem;/);
+    assert.match(css, /\.gm__hud > \.shopbar \{ bottom: calc\(\.12rem - var\(--sa-b\)\); \}/);
+    // the shop's own rule stays the desktop place (.12rem from the bottom, the official frameless row since 2026-10-11):
+    // the inset rule only cancels the HUD inset
+    assert.match(read('public/css/screens/game-shop.css'), /\.shopbar \{\n {2}position: absolute; right: 0; bottom: \.12rem;/);
   });
 
   test('ItemDetail: 调度中心不出售 + the source for the special 维式重锤 / 突变细胞, nothing for a shop item', async () => {

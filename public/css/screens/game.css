@@ -298,7 +298,9 @@
 }
 
 /* ---- team panel ------------------------------------------------------------------------------------------- */
-.team { position: absolute; left: .22rem; top: 2.36rem; display: flex; flex-direction: column; gap: .14rem; pointer-events: none; }
+/* the official player list: large square avatars (≈ 75 px at 1280 × 720) stacked down the left edge */
+.team { position: absolute; left: .22rem; top: 2.2rem; display: flex; flex-direction: column; gap: .2rem; pointer-events: none; }
+.team .team__btn > .pavatar { --pa: 1.12rem; }
 .team__row { position: relative; display: flex; align-items: center; gap: .1rem; pointer-events: auto; }
 .team__btn {
   position: relative; padding: 0; background: none; border: 0;
