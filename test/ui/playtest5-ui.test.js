@@ -117,10 +117,11 @@ describe('9: the prep camera keeps the bench clear of the shop bar on phones in 
   test('HUD_REM mirrors the CSS it measures (bond strip bottom, shop bar top, the notched-phone rule)', () => {
     const game = read('public/css/screens/game.css');
     const shop = read('public/css/screens/game-shop.css');
-    // bond strip: top 1.36rem + a .52rem disc and its name line → measured 2.14–2.15rem in Chrome; 2.16rem kept
-    assert.match(game, /\.gm__bonds \{ position: absolute; left: 1\.56rem; top: 1\.36rem;/);
-    assert.match(game, /\.bslot \.bond \{ --disc: \.52rem; \}/);
-    assert.equal(HUD_REM.bondStripBottom, 2.16);
+    // bond strip (the official one right under the thin top bar, 2026-10-11): top .98rem + a .74rem disc + its .17rem
+    // name line → ≈ 2.03rem; 2.04rem kept
+    assert.match(game, /\.gm__bonds \{ position: absolute; left: 1\.56rem; top: \.98rem;/);
+    assert.match(game, /\.bslot \.bond \{ --disc: \.74rem; \}/);
+    assert.equal(HUD_REM.bondStripBottom, 2.04);
     // shop bar (the official frameless row, 2026-10-11): bottom .12rem + 2.52rem cards (level / operator / item), no
     // row padding or border (the cards' 1 px borders are inside their border-box) — the same 2.64rem top as before
     assert.match(shop, /\.shopbar \{\n {2}position: absolute; right: 0; bottom: \.12rem;/);
@@ -138,11 +139,11 @@ describe('9: the prep camera keeps the bench clear of the shop bar on phones in 
       for (const k of ['normal', 'unite', 'boss', 'hidden', 'pen']) assert.equal(hudBands(k, { width: 844, height: 390 }), null, k);
       for (const k of ['prep', 'bossPrep']) {
         const b = hudBands(k, { width: 844, height: 390 });
-        assert.ok(Math.abs(b.top - 86.4) < 1e-9 && Math.abs(b.bottom - 105.6) < 1e-9, `${k} ${JSON.stringify(b)}`);
+        assert.ok(Math.abs(b.top - 81.6) < 1e-9 && Math.abs(b.bottom - 105.6) < 1e-9, `${k} ${JSON.stringify(b)}`);
       }
     });
-    withDom(100, 0, () => assert.deepEqual(hudBands('prep', { width: 1920, height: 1080 }), { top: 216, bottom: 264 }));
-    withDom(40, 12, () => assert.ok(Math.abs(hudBands('prep', { width: 844, height: 390 }).top - 98.4) < 1e-9, 'top inset'));
+    withDom(100, 0, () => assert.deepEqual(hudBands('prep', { width: 1920, height: 1080 }), { top: 204, bottom: 264 }));
+    withDom(40, 12, () => assert.ok(Math.abs(hudBands('prep', { width: 844, height: 390 }).top - 93.6) < 1e-9, 'top inset'));
     withDom(40, 0, () => assert.deepEqual(hudBands('prep', { width: 640, height: 200 }), { top: 80, bottom: 80 }), 'clamped at 40 % of the height');
   });
 

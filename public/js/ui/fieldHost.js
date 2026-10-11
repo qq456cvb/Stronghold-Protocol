@@ -41,8 +41,8 @@ export function hudPadding(kind, size) {
 
 /**
  * HUD geometry (rem) the prep cameras keep clear (they mirror the CSS; test/ui/playtest5-ui.test.js checks the rules):
- * the bond strip's bottom edge (css/screens/game.css .gm__bonds top 1.36rem + a .bslot: disc .52rem + name ≈
- * 2.15rem measured) and the shop bar's top edge above the viewport's bottom (css/screens/game-shop.css .shopbar
+ * the bond strip's bottom edge (css/screens/game.css .gm__bonds top .98rem + a .bslot: disc .74rem + gap .05rem + a
+ * .17rem name line ≈ 2.03rem — the official strip right under the thin top bar, 2026-10-11) and the shop bar's top edge above the viewport's bottom (css/screens/game-shop.css .shopbar
  * bottom .12rem + card height 2.52rem — the official frameless row, the card borders inside their box). The shop bar
  * sits on the viewport's bottom edge even on a notched phone (css/devices.css, DESIGN §18.1).
  * The folded shop (public issue #5): the tab's top edge (.shopbar-tab bottom .2rem + padding .08rem ×2 + its .44rem
@@ -52,7 +52,7 @@ export function hudPadding(kind, size) {
  * css/devices.css).
  */
 export const HUD_REM = Object.freeze({
-  bondStripBottom: 2.16, shopBarTop: 2.64, shopBarBorderPx: 0, shopTabTop: 0.8, shopTabBorderPx: 3, cornerTop: 0.8,
+  bondStripBottom: 2.04, shopBarTop: 2.64, shopBarBorderPx: 0, shopTabTop: 0.8, shopTabBorderPx: 3, cornerTop: 0.8,
 });
 
 /**

@@ -46,10 +46,11 @@
 .spec__name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .19rem; color: var(--text-hi); }
 .spec__hint { margin: .04rem 0 0; font-size: .15rem; line-height: 1.45; }
 .gtop__exit { box-shadow: 0 .06rem .2rem rgba(0, 0, 0, .5); }
+/* the official top bar (every 盟约 recording): a thin bar (≈ .52rem at 1280 × 720) the phase capsule sticks out of */
 .gtop__center {
   --bk-c: var(--mint-700);
   display: flex; align-items: center; gap: .18rem;
-  height: .78rem; padding: 0 .24rem 0 .14rem; margin-top: .02rem;
+  height: .56rem; padding: 0 .24rem 0 .14rem; margin-top: .02rem;
   background: linear-gradient(180deg, rgba(10, 14, 12, .92), rgba(10, 14, 12, .78));
   border: 1px solid var(--line);
   box-shadow: 0 .08rem .28rem rgba(0, 0, 0, .45);
@@ -112,7 +113,7 @@
 .roundbox { display: flex; align-items: center; gap: .08rem; }
 .roundbox__label { font-size: .16rem; color: var(--text-lo); letter-spacing: .08em; }
 .roundbox__num {
-  min-width: .54rem; height: .44rem; display: grid; place-items: center; padding: 0 .08rem;
+  min-width: .5rem; height: .38rem; display: grid; place-items: center; padding: 0 .08rem;
   background: #eef3f1; color: #0b0f0d; font-size: .32rem; font-weight: 700; line-height: 1;
   clip-path: polygon(.06rem 0, 100% 0, 100% calc(100% - .06rem), calc(100% - .06rem) 100%, 0 100%, 0 .06rem);
 }
@@ -120,7 +121,7 @@
 /* phase capsule */
 .capsule {
   --cap: var(--mint-500);
-  display: flex; align-items: center; gap: .1rem; height: .5rem; min-width: 2.2rem; padding: 0 .22rem 0 .12rem;
+  display: flex; align-items: center; gap: .1rem; height: .68rem; min-width: 2.2rem; padding: 0 .22rem 0 .12rem;
   border: 2px solid var(--cap); border-radius: .25rem;
   background: linear-gradient(90deg, transparent, rgba(0, 0, 0, .25)); background: linear-gradient(90deg, color-mix(in srgb, var(--cap) 16%, transparent), rgba(0, 0, 0, .25));
   box-shadow: inset 0 0 .14rem transparent, 0 0 .16rem transparent; box-shadow: inset 0 0 .14rem color-mix(in srgb, var(--cap) 30%, transparent), 0 0 .16rem color-mix(in srgb, var(--cap) 25%, transparent);
@@ -237,11 +238,11 @@
 .readybtn.is-busy { opacity: .7; }
 
 /* ---- bond strip ---------------------------------------------------------------------------------------- */
-/* Centred under the top bar like the official strip (every 盟约 recording: one bond sits under the round capsule, more
-   grow outward from it); the box is symmetric about the screen's centre, a strip wider than it starts at its left edge
-   (`safe`) and runs right, clear of the 准备就绪 button. The top / disc size stay: the prep camera measures them
-   (HUD_REM.bondStripBottom). */
-.gm__bonds { position: absolute; left: 1.56rem; top: 1.36rem; right: 1.56rem; pointer-events: none;
+/* Centred right under the top bar like the official strip (every 盟约 recording: one bond sits under the round capsule,
+   more grow outward from it; discs ≈ 50 px at 1280 × 720); the box is symmetric about the screen's centre, a strip wider
+   than it starts at its left edge (`safe`) and runs right, clear of the 准备就绪 button. The prep camera keeps the board
+   clear of its bottom edge: top .98rem + a .74rem disc + its name ≈ 2.03rem (HUD_REM.bondStripBottom 2.04). */
+.gm__bonds { position: absolute; left: 1.56rem; top: .98rem; right: 1.56rem; pointer-events: none;
   display: flex; align-items: flex-start; justify-content: safe center; gap: max(.1rem, 8px); }
 /* Only the bond discs (and the +N chip) take the pointer: the strip's box spans the width under the top bar, where the
    top board row's units stand (row 12 at 16:9 / 21:9 / 720p / phones, the boss field's row 5 in a boss prep) — it used
@@ -278,9 +279,9 @@
 }
 .bstrip.is-other .bond__core { box-shadow: 0 0 0 1px rgba(246, 163, 41, .45); }
 .bstrip__more { align-self: center; font-size: .16rem; color: var(--text-lo); padding: .04rem .08rem; border: 1px solid var(--line-2); background: rgba(8, 11, 10, .7); }
-.bslot { position: relative; display: flex; flex-direction: column; align-items: center; width: .74rem; }
-.bslot .bond { --disc: .52rem; }
-.bslot .bond__name { font-size: .14rem; font-weight: 500; text-shadow: 0 1px 3px #000, 0 0 6px #000; }
+.bslot { position: relative; display: flex; flex-direction: column; align-items: center; width: 1.08rem; }
+.bslot .bond { --disc: .74rem; }
+.bslot .bond__name { font-size: .17rem; font-weight: 500; text-shadow: 0 1px 3px #000, 0 0 6px #000; }
 .bslot__count {
   position: absolute; top: -.04rem; right: .02rem; font-size: .13rem; font-weight: 700; color: var(--text-hi);
   background: rgba(8, 11, 10, .92); border: 1px solid var(--line-2); padding: 0 .04rem; line-height: 1.35;

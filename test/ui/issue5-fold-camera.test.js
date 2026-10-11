@@ -125,7 +125,7 @@ describe('hudBands: the folded shop\'s band', () => {
         assert.ok(Math.abs(f.bottom - 35) < 1e-9, `no corner on the page: the tab .8rem + 3 px (${f.bottom})`);
       }
     });
-    withDom({ rem: 100 }, () => assert.deepEqual(hudBands('prep', { width: 1920, height: 1080 }, { shop: false }), { top: 216, bottom: 83 }));
+    withDom({ rem: 100 }, () => assert.deepEqual(hudBands('prep', { width: 1920, height: 1080 }, { shop: false }), { top: 204, bottom: 83 }));
   });
 
   test('the corner buttons are measured, touch hit areas included; the tab sits above the bottom safe-area inset', () => {
