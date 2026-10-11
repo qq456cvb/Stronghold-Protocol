@@ -59,6 +59,8 @@ export const MATERIALS = [
   'penGlass',
   // the lake beside the sand board's island (render/tiles.js buildWaterQuads)
   'water',
+  // a forbidden run inside the sand board's field: a sunken pit at ground level (render/tiles.js interiorPits)
+  'pit',
 ];
 
 /**
@@ -463,18 +465,20 @@ const MAT_DRAW = {
     speckle(ctx, x, y, s, s, r, 90, ['rgba(255,255,255,0.035)', 'rgba(0,0,0,0.12)']);
   },
   water(ctx, x, y, s, r) { waterBase(ctx, x, y, s, r, ['#1d3a44', '#16303a', '#10252d']); },
+  pit(ctx, x, y, s, r) { forbidBase(ctx, x, y, s, r, true); },
 };
 
 // ---- the sand board (BOARD_THEMES 'sand') ----------------------------------------------------------------------
 
 /** Palette of the sand board. */
+/** Palette of the sand board (sampled against the official recordings: a light, greyish sand — not orange). */
 const SAND = Object.freeze({
-  hi: '#efd7a6', light: '#e2c28c', mid: '#d4ad74', dark: '#bf955e', seam: '#9a7246', deep: '#7a5634',
-  lattice: 'rgba(150,176,178,0.62)', latticeEdge: 'rgba(250,236,204,0.75)',
-  frame: '#6b3534', frameHi: '#8d4a45', inlay: '#d7b07a',
-  wood: '#c79a5f', woodHi: '#e3bd82', woodDark: '#94683a', woodSeam: '#6e4a26',
-  stone: '#dedad0', stoneDark: '#bfbab0', moss: 'rgba(176,170,64,0.75)',
-  rock: '#d8b47d', rockHi: '#f0d3a1', rockLo: '#a87e4c',
+  hi: '#f2dfbc', light: '#e8d0a8', mid: '#dcbe94', dark: '#c8a57e', seam: '#a08262', deep: '#7c5e40',
+  lattice: 'rgba(168,186,188,0.5)', latticeEdge: 'rgba(250,240,220,0.55)',
+  frame: '#6a3f3a', frameHi: '#8a5550', inlay: '#d9bb92',
+  wood: '#dcb98c', woodHi: '#eed5ad', woodDark: '#b48d60', woodSeam: '#8a6944',
+  stone: '#d6d0cb', stoneDark: '#b5aca6', moss: 'rgba(170,166,70,0.7)',
+  rock: '#d6ae84', rockHi: '#efd4ae', rockLo: '#a9845e',
 });
 
 /** A sand slab: warm gradient, fine grit, soft bevel; `tone` shifts it lighter (> 0) or darker (< 0). */
@@ -545,16 +549,21 @@ function zigzagFrame(ctx, x, y, s, band = 11) {
   ctx.restore();
 }
 
-/** A raised wooden square frame around the slab (the fence tiles): planks with a lit top edge and a shadow inside. */
-function woodFrame(ctx, x, y, s, r, band = 15) {
+/**
+ * A raised wooden square frame around the slab (the fence tiles): thick planks with a lit top bevel and a dark outer
+ * edge, and the deep shadow the frame casts into its well — it reads as standing up from the sand, as in the official board.
+ */
+function woodFrame(ctx, x, y, s, r, band = 18) {
   ctx.save();
-  // the shadow the frame casts into its well
-  const sh = ctx.createLinearGradient(x, y + band, x, y + band + 12);
-  sh.addColorStop(0, 'rgba(70,44,20,0.45)'); sh.addColorStop(1, 'rgba(70,44,20,0)');
-  ctx.fillStyle = sh; ctx.fillRect(x + band, y + band, s - band * 2, 12);
-  const sl = ctx.createLinearGradient(x + band, y, x + band + 10, y);
-  sl.addColorStop(0, 'rgba(70,44,20,0.35)'); sl.addColorStop(1, 'rgba(70,44,20,0)');
-  ctx.fillStyle = sl; ctx.fillRect(x + band, y + band, 10, s - band * 2);
+  // the shadow the frame casts into its well (light from the upper left: the far and the left side)
+  const sh = ctx.createLinearGradient(x, y + band, x, y + band + 20);
+  sh.addColorStop(0, 'rgba(80,54,28,0.6)'); sh.addColorStop(1, 'rgba(80,54,28,0)');
+  ctx.fillStyle = sh; ctx.fillRect(x + band, y + band, s - band * 2, 20);
+  const sl = ctx.createLinearGradient(x + band, y, x + band + 14, y);
+  sl.addColorStop(0, 'rgba(80,54,28,0.45)'); sl.addColorStop(1, 'rgba(80,54,28,0)');
+  ctx.fillStyle = sl; ctx.fillRect(x + band, y + band, 14, s - band * 2);
+  // the frame's outer edge, where it stands on the sand
+  ctx.fillStyle = 'rgba(90,62,34,0.7)'; ctx.fillRect(x, y, s, 2); ctx.fillRect(x, y, 2, s); ctx.fillRect(x, y + s - 2, s, 2); ctx.fillRect(x + s - 2, y, 2, s);
   const plank = (px, py, w, h, horiz) => {
     const g = horiz ? ctx.createLinearGradient(px, py, px, py + h) : ctx.createLinearGradient(px, py, px + w, py);
     g.addColorStop(0, SAND.woodHi); g.addColorStop(0.45, SAND.wood); g.addColorStop(1, SAND.woodDark);
@@ -572,6 +581,9 @@ function woodFrame(ctx, x, y, s, r, band = 15) {
   plank(x + 2, y + s - 2 - band, s - 4, band, true);
   plank(x + 2, y + 2 + band, band, s - 4 - band * 2, false);
   plank(x + s - 2 - band, y + 2 + band, band, s - 4 - band * 2, false);
+  // the lit top bevel of the frame and the dark inner lip over the well
+  ctx.fillStyle = 'rgba(255,244,220,0.55)'; ctx.fillRect(x + 3, y + 3, s - 6, 2); ctx.fillRect(x + 3, y + 3, 2, s - 6);
+  ctx.fillStyle = 'rgba(70,46,22,0.55)'; ctx.fillRect(x + band + 2, y + band + 2, s - 2 * band - 4, 2); ctx.fillRect(x + band + 2, y + band + 2, 2, s - 2 * band - 4);
   // nails at the corners
   ctx.fillStyle = 'rgba(70,60,50,0.8)';
   for (const [nx, ny] of [[x + 2 + band / 2, y + 2 + band / 2], [x + s - 2 - band / 2, y + 2 + band / 2], [x + 2 + band / 2, y + s - 2 - band / 2], [x + s - 2 - band / 2, y + s - 2 - band / 2]]) {
@@ -629,7 +641,7 @@ function sandstoneSide(ctx, x, y, s, r, top = SAND.rock, foot = SAND.deep) {
 
 /** Wooden deck planks running along x (texture u): seamless from one tile to the next. */
 function deckPlanks(ctx, x, y, s, r) {
-  const rows = 4, h = s / rows;
+  const rows = 3, h = s / rows;
   for (let k = 0; k < rows; k++) {
     const py = y + k * h;
     const g = ctx.createLinearGradient(x, py, x, py + h);
@@ -638,14 +650,14 @@ function deckPlanks(ctx, x, y, s, r) {
     ctx.fillStyle = g; ctx.fillRect(x, py, s, h);
     ctx.fillStyle = `rgba(255,236,200,${(tone - 0.92) * 0.8})`; ctx.fillRect(x, py, s, h);
     // grain: long thin streaks
-    ctx.strokeStyle = 'rgba(120,80,40,0.22)'; ctx.lineWidth = 0.8;
+    ctx.strokeStyle = 'rgba(140,100,60,0.18)'; ctx.lineWidth = 0.8;
     for (let i = 0; i < 4; i++) {
       const yy = py + 3 + r() * (h - 6);
       ctx.beginPath(); ctx.moveTo(x, yy); ctx.bezierCurveTo(x + s * 0.3, yy + (r() - 0.5) * 2, x + s * 0.7, yy + (r() - 0.5) * 2, x + s, yy);
       ctx.stroke();
     }
     // the gap between planks
-    ctx.fillStyle = SAND.woodSeam; ctx.fillRect(x, py + h - 1.6, s, 1.6);
+    ctx.fillStyle = 'rgba(138,105,68,0.8)'; ctx.fillRect(x, py + h - 1.2, s, 1.2);
     ctx.fillStyle = 'rgba(255,236,200,0.35)'; ctx.fillRect(x, py, s, 1);
     // a butt joint somewhere inside the tile (never on its edge, so tiles join seamlessly)
     if (r() < 0.6) {
@@ -660,9 +672,9 @@ function deckPlanks(ctx, x, y, s, r) {
 
 /** A white stone slab cracked into pieces, moss in the cracks (the item slots of the bench). */
 function stoneSlab(ctx, x, y, s, r) {
-  ctx.fillStyle = '#8e8a7c'; ctx.fillRect(x, y, s, s);
+  ctx.fillStyle = '#8a8378'; ctx.fillRect(x, y, s, s);
   const g = ctx.createLinearGradient(x, y, x + s, y + s);
-  g.addColorStop(0, '#ecebe4'); g.addColorStop(1, SAND.stoneDark);
+  g.addColorStop(0, '#e2ddd8'); g.addColorStop(0.6, SAND.stone); g.addColorStop(1, SAND.stoneDark);
   ctx.fillStyle = g; ctx.fillRect(x + 2, y + 2, s - 4, s - 4);
   speckle(ctx, x + 2, y + 2, s - 4, s - 4, r, 260, ['rgba(255,255,255,0.18)', 'rgba(90,86,70,0.10)'], [0.5, 1.8]);
   // crack network: a few long branching cracks from the edges, with moss along them
@@ -715,9 +727,10 @@ function waterBase(ctx, x, y, s, r, cols = ['#55aab0', '#4697a0', '#3a838e']) {
 
 /** Material drawers of the sand board; a material it leaves out keeps its default drawer. */
 const SAND_DRAW = {
-  road(ctx, x, y, s, r) { sandSlab(ctx, x, y, s, r, 0); diamondLattice(ctx, x, y, s, r, 3, 5); },
-  road2(ctx, x, y, s, r) { sandSlab(ctx, x, y, s, r, 0); diamondLattice(ctx, x, y, s, r, 3, 5, 0.85); cracks(ctx, x, y, s, r, 2, 'rgba(120,84,44,0.35)'); },
-  road3(ctx, x, y, s, r) { sandSlab(ctx, x, y, s, r, -1); diamondLattice(ctx, x, y, s, r, 3, 5, 0.7); },
+  road(ctx, x, y, s, r) { sandSlab(ctx, x, y, s, r, 0); diamondLattice(ctx, x, y, s, r, 2, 5); },
+  // the official board mixes plain sand slabs among the latticed ones (road tiles picked by position, render/tiles.js variantMat)
+  road2(ctx, x, y, s, r) { sandSlab(ctx, x, y, s, r, 1); cracks(ctx, x, y, s, r, 1, 'rgba(120,90,60,0.25)'); },
+  road3(ctx, x, y, s, r) { sandSlab(ctx, x, y, s, r, -1); diamondLattice(ctx, x, y, s, r, 2, 5, 0.75); },
   roadN(ctx, x, y, s, r) { sandSlab(ctx, x, y, s, r, 1); },
   roadN2(ctx, x, y, s, r) { sandSlab(ctx, x, y, s, r, 0); cracks(ctx, x, y, s, r, 3, 'rgba(120,84,44,0.35)'); },
   floor(ctx, x, y, s, r) { sandSlab(ctx, x, y, s, r, 0); diamondLattice(ctx, x + 10, y + 10, s - 20, r, 2, 2, 0.45); zigzagFrame(ctx, x, y, s); },
@@ -800,9 +813,9 @@ const SAND_DRAW = {
     // a grey steel frame round wooden slats, yellow-black corner guards
     ctx.fillStyle = '#5d6062'; ctx.fillRect(x, y, s, s);
     const g = ctx.createLinearGradient(x, y, x, y + s);
-    g.addColorStop(0, '#b08a5a'); g.addColorStop(1, '#7d5f3c');
+    g.addColorStop(0, '#94806a'); g.addColorStop(1, '#6a5947');
     ctx.fillStyle = g; ctx.fillRect(x + 10, y + 10, s - 20, s - 20);
-    ctx.fillStyle = 'rgba(60,40,20,0.6)';
+    ctx.fillStyle = 'rgba(40,30,20,0.6)';
     for (let k = 1; k < 4; k++) ctx.fillRect(x + 10 + ((s - 20) * k) / 4 - 1, y + 10, 2, s - 20);
     ctx.strokeStyle = '#8b8f91'; ctx.lineWidth = 4; ctx.strokeRect(x + 4, y + 4, s - 8, s - 8);
     ctx.strokeStyle = '#3c4042'; ctx.lineWidth = 2; ctx.strokeRect(x + 9, y + 9, s - 18, s - 18);
@@ -818,6 +831,19 @@ const SAND_DRAW = {
     ctx.beginPath(); ctx.moveTo(x + s / 2, y + 16); ctx.lineTo(x + s / 2, y + s - 16); ctx.moveTo(x + 16, y + s / 2); ctx.lineTo(x + s - 16, y + s / 2); ctx.stroke();
   },
   water(ctx, x, y, s, r) { waterBase(ctx, x, y, s, r); },
+  // a sunken pit: a sand rim, a recessed floor of dusty yellow sand, the walls shading its far and left side
+  pit(ctx, x, y, s, r) {
+    sandSlab(ctx, x, y, s, r, 0);
+    const i = s * 0.14, w = s - i * 2;
+    const g = ctx.createLinearGradient(x + i, y + i, x + i, y + i + w);
+    g.addColorStop(0, '#b9a25e'); g.addColorStop(1, '#cdb873');
+    ctx.fillStyle = g; ctx.fillRect(x + i, y + i, w, w);
+    speckle(ctx, x + i, y + i, w, w, r, 160, ['rgba(255,244,200,0.14)', 'rgba(90,70,30,0.12)'], [0.6, 1.8]);
+    // the inner walls: dark on the far (top) and left side, lit on the near and right
+    ctx.fillStyle = 'rgba(70,50,24,0.55)'; ctx.fillRect(x + i, y + i, w, s * 0.07); ctx.fillRect(x + i, y + i, s * 0.06, w);
+    ctx.fillStyle = 'rgba(255,240,205,0.45)'; ctx.fillRect(x + i, y + i + w - 2, w, 2); ctx.fillRect(x + i + w - 2, y + i, 2, w);
+    ctx.strokeStyle = 'rgba(120,90,60,0.6)'; ctx.lineWidth = 1.4; ctx.strokeRect(x + i, y + i, w, w);
+  },
 };
 
 /** The drawer of material `name` in board theme `theme`. */

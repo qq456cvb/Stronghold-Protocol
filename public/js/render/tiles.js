@@ -378,6 +378,16 @@ export class TileField {
       if (d.role === 'platform' || d.role === 'mound') t.devH = TILE_H.platform;
       else if (d.role === 'waterPlatform') t.devH = DEVICE_BOX.waterPlatform.height;
     }
+    // the sand board's forbidden blocks are smooth sandstone, broken into rocks only along the item-slot row (the
+    // official board: the blocks either side of the white slabs are rubble, the field's edge blocks smooth); a forbidden
+    // run inside the field sinks to a pit at ground level (interiorPits)
+    if (this.theme === 'sand') {
+      for (const row of this.grid) {
+        const rubble = row.some((t) => t.glyph === 'A');
+        for (const t of row) if (t.glyph === '#' && t.mat === 'forbid') t.top = rubble ? 'forbid2' : 'forbid';
+      }
+      for (const t of interiorPits(this.grid)) { t.mat = 'pit'; t.top = 'pit'; t.hClass = null; t.h = 0; }
+    }
     const hs = new Set([0]);
     for (const row of this.grid) for (const t of row) if (t.drawn) hs.add(t.h + (t.devH || 0));
     this.levels = [...hs].sort((a, b) => b - a);
@@ -1266,6 +1276,32 @@ function drawBush(g, cam, cx, cy, z0, seed) {
     g.drawCircle(p.x, p.y, s);
     g.endFill();
   }
+}
+
+/**
+ * Forbidden tiles inside a field of the sand board: a run of `#` along a row bounded on both ends by drawn, non-blocking
+ * tiles of the same half (cols 0–10 / 11–20) — the official board sinks these to pits at ground level (act1 m01's row-9
+ * run between the lanes) instead of raising sandstone blocks; the blocks along the field's edges and between the two
+ * halves stay blocks. → the tiles (grid entries)
+ */
+export function interiorPits(G) {
+  const out = [];
+  const open = (t) => !!t && t.drawn && t.glyph !== '#' && t.glyph !== 'X' && !t.scenery;
+  for (let r = 0; r < ROWS; r++) {
+    const row = G[r];
+    if (!row) continue;
+    for (const [c0, c1] of [[0, 10], [11, COLS - 1]]) {
+      let c = c0;
+      while (c <= c1) {
+        if (row[c]?.glyph !== '#') { c++; continue; }
+        let e = c;
+        while (e + 1 <= c1 && row[e + 1]?.glyph === '#') e++;
+        if (c > c0 && e < c1 && open(row[c - 1]) && open(row[e + 1])) for (let k = c; k <= e; k++) if (row[k].drawn) out.push(row[k]);
+        c = e + 1;
+      }
+    }
+  }
+  return out;
 }
 
 /**

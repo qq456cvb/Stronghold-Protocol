@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseStage, buildWaterQuads, shoreX, islandEdge, decorSpots, planeOcclusion } from '../../public/js/render/tiles.js';
+import { parseStage, buildWaterQuads, shoreX, islandEdge, decorSpots, planeOcclusion, interiorPits } from '../../public/js/render/tiles.js';
 import { MATERIALS, BOARD_THEMES, boardThemeOf } from '../../public/js/render/textures.js';
 import { SEASON_THEME } from '../../public/js/render/style.js';
 import { boardArea, boardThemePreference, fieldRows, bandFor } from '../../public/js/render/app.js';
@@ -107,5 +107,25 @@ describe('scenery spots', () => {
         assert.ok(s.kind === 'cactus' || s.kind === 'rocks');
       }
     }
+  });
+});
+
+describe('forbidden runs inside the field sink to pits', () => {
+  test('act1 m01: the row-9 run between the lanes is a pit, the field\'s edge blocks stay blocks', () => {
+    const g = parseStage(stages.act1autochess_m01, [6, 18], [6, 18], boardArea('normal'));
+    const pits = interiorPits(g).map((t) => `${t.r},${t.c}`).sort();
+    assert.deepEqual(pits, ['9,5', '9,6', '9,7']);
+  });
+
+  test('act2 m01: single blocks between lanes are pits; the block between the two halves (col 10) is not', () => {
+    const g = parseStage(stages.act2autochess_m01, [6, 18], [6, 18], boardArea('normal'));
+    const pits = new Set(interiorPits(g).map((t) => `${t.r},${t.c}`));
+    for (const k of ['10,6', '11,6', '10,8', '11,8', '9,6', '12,8']) assert.ok(pits.has(k), k);
+    for (const k of ['10,10', '11,10', '9,1', '10,2']) assert.ok(!pits.has(k), k);
+  });
+
+  test('act2 m04 has none (no forbidden tile inside its field)', () => {
+    const g = parseStage(stages.act2autochess_m04, [6, 18], [6, 18], boardArea('normal'));
+    assert.deepEqual(interiorPits(g).filter((t) => t.r >= 9 && t.r <= 12), []);
   });
 });
