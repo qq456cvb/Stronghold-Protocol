@@ -35,7 +35,8 @@ at all, this project grants an additional permission under GPL-3.0 section 7 for
 |---|---|---|
 | Bender (Jovanny Lemonad / Oleg Zhuravlev, Gladkikh Ivan) | the authors' free-font terms (not GPL) | downloaded by `tools/fetch-assets.mjs` from [TimWangZi/The-font-of-Arknights](https://github.com/TimWangZi/The-font-of-Arknights) into `public/fonts/` (included in the release bundle) |
 | Novecento Wide (Jan Tonellato / Synthview) | the authors' free-font terms (not GPL) | as above |
-| Noto Sans SC, Oxanium, Rajdhani | SIL Open Font License 1.1 | loaded by the browser from Google Fonts at runtime; not distributed |
+| Noto Sans SC (Google / Adobe, the open release of Source Han Sans) | SIL Open Font License 1.1 (the licence text ships beside it as `LICENSE`) | the npm package `@fontsource/noto-sans-sc`, copied by `tools/vendor.mjs` into `public/vendor/fonts/noto-sans-sc/` (weights 400 / 500 / 700 / 900, woff2 slices; included in the release bundle) |
+| Oxanium, Rajdhani | SIL Open Font License 1.1 | loaded by the browser from Google Fonts at runtime (numeral fallbacks); not distributed |
 
 ## Game data, art and audio
 

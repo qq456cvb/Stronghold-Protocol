@@ -37,8 +37,8 @@ const NARROW = [['640x360', 640, 360, true], ['667x375', 667, 375, true], ['720x
 /** two pick maps over the 4 mock players (p1 = me): every one of 6 cards is taken in one pass and free in the other */
 const TAKEN = [{ p4: 0, p3: 1, ai_2: 2, p1: 3 }, { p4: 4, p3: 5 }];
 const DESKTOP = [['1280x720', 1280, 720, false], ['1920x1080', 1920, 1080, false]];
-/** public/index.html's Google Fonts stylesheet */
-const WEB_FONTS = 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;900&family=Oxanium:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap';
+/** public/index.html's CJK UI font: the self-hosted Noto Sans SC (tools/vendor.mjs VENDOR_FONT) */
+const WEB_FONTS = '/vendor/fonts/noto-sans-sc/noto-sans-sc.css';
 
 describe('user playtest #6 — UI items 6 / 10 (mock harness, headless Chrome)', { skip: !ENABLED && 'set SP_E2E=1 (and have Chrome) to run' }, () => {
   let srv;
@@ -67,11 +67,11 @@ describe('user playtest #6 — UI items 6 / 10 (mock harness, headless Chrome)',
     page.on('console', (m) => { if (m.type() === 'error') problems.push(`console: ${m.text()}`); });
     await page.goto(`${base}/dev/game-mock.html?shot=1&${query}`, { waitUntil: 'networkidle0' });
     await page.waitForFunction(() => !!document.querySelector('.screen:not(.gload)'), { timeout: 20000 });
-    // the real page's web font (index.html loads it from Google Fonts; Android's CJK font has its metrics): the mock has
+    // the real page's CJK font (index.html loads the self-hosted Noto Sans SC; Android's CJK font has its metrics): the mock has
     // no <link> for it, and the system fallback wraps differently (QA: 海沟实验体 took 8 lines at 640×360 with it) —
     // measured with it whenever it can be fetched
     const noto = webFont && await Promise.race([
-      page.addStyleTag({ url: WEB_FONTS }).then(() => page.evaluate(async () => {
+      page.addStyleTag({ url: `${base}${WEB_FONTS}` }).then(() => page.evaluate(async () => {
         await Promise.all(['400', '700', '900'].map((wt) => document.fonts.load(`${wt} 12px "Noto Sans SC"`, '获得伤害减免')));
         return document.fonts.check('12px "Noto Sans SC"', '获得');
       })).catch(() => false),
