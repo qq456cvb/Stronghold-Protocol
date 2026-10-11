@@ -91,7 +91,7 @@ describe('the lake beside the island', () => {
 });
 
 describe('scenery spots', () => {
-  test('cacti and rocks stand only on blocks next to the field, never in front of it or on a device', () => {
+  test('cacti, rocks and picket fences stand only on blocks next to the field, never in front of it or on a device', () => {
     for (const id of ['act1autochess_m01', 'act2autochess_m01', 'act2autochess_m02', 'act2autochess_m03', 'act2autochess_m04']) {
       const st = stages[id];
       const g = parseStage(st, [6, 13], [6, 13], boardArea('normal'));
@@ -104,7 +104,8 @@ describe('scenery spots', () => {
         assert.ok(t.glyph === '#' || t.glyph === 'X');
         assert.ok(s.row > 6 && s.row < 14, `${id} ${s.row}: not in front of the bench`);
         assert.ok(!taken.has(`${s.row},${s.col}`));
-        assert.ok(s.kind === 'cactus' || s.kind === 'rocks');
+        assert.ok(s.kind === 'cactus' || s.kind === 'rocks' || s.kind === 'picket', s.kind);
+        if (s.kind === 'picket') assert.equal(t.glyph, 'X', 'picket fences stand on the separator walls only');
       }
     }
   });
@@ -144,6 +145,33 @@ describe('raised wooden fence frames', () => {
         assert.ok(x >= quad.col - 0.5 - 1e-9 && x <= quad.col + 0.5 + 1e-9 && y >= quad.row - 0.5 - 1e-9 && y <= quad.row + 0.5 + 1e-9);
         assert.ok(z >= -1e-9 && z <= FENCE_RIM.h + 1e-9);
       }
+    }
+  });
+});
+
+describe('the sand board\'s relief', () => {
+  test('taller smooth blocks, the rubble row and pits unchanged, a sunken deep-water channel', async () => {
+    const { installFakePixi } = await import('./fakepixi.js');
+    const fake = installFakePixi();
+    try {
+      const P = globalThis.PIXI;
+      P.BLEND_MODES = { ADD: 1, NORMAL: 0 };
+      const { TileField, SAND_DEPTH } = await import('../../public/js/render/tiles.js');
+      const layers = { ground: new P.Container(), overlay: new P.Container(), props: new P.Container(), anim: new P.Container() };
+      for (const l of Object.values(layers)) l.addChild = function (...kids) { for (const k of kids) { k.parent = this; this.children.push(k); } return kids[0]; };
+      const f = new TileField(layers);
+      f.setExternal(true);
+      f.setTheme('sand');
+      f.setView(bandFor('normal'), null, fieldRows('normal'), boardArea('normal'));
+      f.setStage(stages.act2autochess_m04);
+      assert.equal(f.heightAt(10, 6), SAND_DEPTH.channel, 'deep water (10,6) sunk');
+      assert.equal(f.heightAt(10, 1), SAND_DEPTH.block, 'an edge block (10,1) raised');
+      assert.ok(f.heightAt(8, 2) < SAND_DEPTH.block && f.heightAt(8, 2) > 0, 'the rubble beside the item slots keeps its lower height');
+      f.setTheme('default');
+      assert.equal(f.heightAt(10, 6), 0, 'the default board: the channel at ground level');
+      f.destroy();
+    } finally {
+      fake.restore();
     }
   });
 });

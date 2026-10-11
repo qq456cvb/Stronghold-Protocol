@@ -387,6 +387,12 @@ export class TileField {
         for (const t of row) if (t.glyph === '#' && t.mat === 'forbid') t.top = rubble ? 'forbid2' : 'forbid';
       }
       for (const t of interiorPits(this.grid)) { t.mat = 'pit'; t.top = 'pit'; t.hClass = null; t.h = 0; }
+      // the official board's depth: taller sandstone blocks round the field (the rubble row keeps its height) and the
+      // deep-water channel sunk below the ground, its neighbours showing their walls
+      for (const row of this.grid) for (const t of row) {
+        if (t.glyph === '#' && t.hClass === 'forbid' && t.top === 'forbid') t.h = SAND_DEPTH.block;
+        else if (t.glyph === 'd') t.h = SAND_DEPTH.channel;
+      }
     }
     const hs = new Set([0]);
     for (const row of this.grid) for (const t of row) if (t.drawn) hs.add(t.h + (t.devH || 0));
@@ -701,6 +707,7 @@ export class TileField {
       g.zIndex = rowDepthKey(cam, d.row) + ROW_KEY.devices;
       const z0 = this.tile(d.row, d.col).h;
       if (d.kind === 'cactus') drawCactus(g, cam, d.col, d.row, z0, d.seed);
+      else if (d.kind === 'picket') drawPicket(g, cam, d.col, d.row, z0, d.seed);
       else drawRocks(g, cam, d.col, d.row, z0, d.seed);
     }
   }
@@ -963,6 +970,9 @@ export function rectBoxQuads(quads, uv, x0, x1, y0, y1, z0, height, topMat, side
   quads.push({ ...base, pts: [[x0, y1, zt], [x1, y1, zt], [x1, y0, zt], [x0, y0, zt]], u: top, shade: 1, order: 0, faceDir: 0, rot: o.rot | 0 });
   return quads;
 }
+
+/** Heights (tiles) of the sand board's deeper relief: the smooth sandstone blocks, the sunken deep-water channel. */
+export const SAND_DEPTH = Object.freeze({ block: 0.42, channel: -0.14 });
 
 /** Wooden fence frame of the sand board: bar thickness and height (tiles). */
 export const FENCE_RIM = Object.freeze({ t: 0.16, h: 0.13 });
@@ -1351,7 +1361,8 @@ export function interiorPits(G) {
  * Scenery of the sand board: cacti and rocks on some of the blocks around the field (forbidden blocks next to it,
  * the separator walls) — never on a playable tile, a device, the faded margin or the row in front of the field
  * (`front`: the field's near separator, where a cactus would stand in front of the bench and the shop bar). Picked by
- * tile hash, so a board always looks the same. → [{ row, col, kind: 'cactus'|'rocks', seed }]
+ * tile hash, so a board always looks the same; the separator walls also carry stretches of wooden picket fence.
+ * → [{ row, col, kind: 'cactus'|'rocks'|'picket', seed }]
  */
 export function decorSpots(G, taken = new Set(), front = -1) {
   const out = [];
@@ -1363,6 +1374,7 @@ export function decorSpots(G, taken = new Set(), front = -1) {
     const h = hash2(r * 3 + 1, c * 7 + 2) % 13;
     if (h === 0) out.push({ row: r, col: c, kind: 'cactus', seed: hash2(r, c) });
     else if (h === 5) out.push({ row: r, col: c, kind: 'rocks', seed: hash2(c, r) });
+    else if (t.glyph === 'X' && (h === 2 || h === 9)) out.push({ row: r, col: c, kind: 'picket', seed: hash2(r + 7, c) });
   }
   return out;
 }
@@ -1401,6 +1413,39 @@ function drawCactus(g, cam, cx, cy, z0, seed) {
   // the lit side
   for (const l of limbs) stroke(l.map(([x, y]) => [x - w * 0.22, y]), Math.max(1, w * 0.28), 0x9cc46a, 0.7);
   g.lineStyle(0);
+}
+
+/**
+ * A stretch of weathered wooden picket fence along the far half of tile (cx, cy) at height z0: two rails and a row of
+ * pointed slats, drawn upright in screen space like the cacti.
+ */
+function drawPicket(g, cam, cx, cy, z0, seed) {
+  const R = rng(seed);
+  const yW = cy + 0.18;
+  const a = cam.project(cx - 0.46, yW, z0), b = cam.project(cx + 0.46, yW, z0);
+  const u = (a.s + b.s) / 2, H = u * 0.3;
+  const n = 6, w = Math.max(2, ((b.x - a.x) / n) * 0.62);
+  // shadow on the block top
+  g.lineStyle(0);
+  g.beginFill(0x5a3a1c, 0.22);
+  g.drawPolygon([a.x, a.y, b.x, b.y, b.x + u * 0.06, b.y + u * 0.08, a.x + u * 0.06, a.y + u * 0.08]);
+  g.endFill();
+  // rails
+  for (const k of [0.35, 0.72]) {
+    g.beginFill(0x9c8566, 1);
+    g.drawPolygon([a.x, a.y - H * k - 2, b.x, b.y - H * k - 2, b.x, b.y - H * k + 2, a.x, a.y - H * k + 2]);
+    g.endFill();
+  }
+  // slats
+  for (let i = 0; i < n; i++) {
+    const t = (i + 0.5) / n, x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t;
+    const h = H * (0.9 + R() * 0.2);
+    g.beginFill(0x7d6a52, 1); g.drawRect(x - w / 2 + 1, y - h, w, h); g.endFill();
+    g.beginFill(0xd9c7a6, 1);
+    g.drawPolygon([x - w / 2, y, x - w / 2, y - h + w * 0.5, x, y - h, x + w / 2, y - h + w * 0.5, x + w / 2, y]);
+    g.endFill();
+    g.beginFill(0xffffff, 0.25); g.drawRect(x - w / 2, y - h + w * 0.5, Math.max(1, w * 0.3), h - w * 0.5); g.endFill();
+  }
 }
 
 /** A few sandstone rocks lying on tile (cx, cy) at height z0. */
