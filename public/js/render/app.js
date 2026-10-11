@@ -64,10 +64,11 @@
 // pen enemy emits pieceClick { enemyKey, preview: true, unit: { side: 'enemy', defId, enemyKey, preview: true } }.
 //   view.setCamera('pen') pans to the pen in 0.25 s (configBlackBoard move_time); `view.setCamera(kind, opts)` goes
 //   back (the same kind without options returns to the exact camera used before the pen).
-//   The pen is shown ONLY by the pen camera (user playtest #2 item 6: the battlefield with the waiting enemies above it
-//   looked wrong — after 返回战场 and in every battle): the prep, battle, 联防 and boss cameras neither build its 3D
-//   area nor draw its 2D rows (`boardArea` / `bandFor`), and its figures hide (`penShown`, kept for the way back); a
-//   flight to / from the pen shows both while it lasts.
+//   The pen lies above the field in every view of it — prep, battle, 联防 and the pen camera (`boardArea` / `bandFor` /
+//   `penShown`): its front rows show at the top edge, the waiting enemies in prep and the empty floor in battle, as in
+//   the official views (the owner's 终极模拟 recordings; the owner's request of 2026-10-11 reverses user playtest #2
+//   item 6, which had kept it for the pen camera alone); the boss cameras build the boss field without it, and a
+//   flight between the two shows it while it lasts.
 // The round's leader (community report #12, owner's decision 2026-10-04; research 09 §2.2: in the official Final Assault
 // prep image the boss stands on the boss field with its HP bar): a nextEnemies entry with its spawn tile `start`
 // (render/prepfield.js leaderStand) stands there — idle, with its (full) HP bar, facing the player's half, a tap shows its

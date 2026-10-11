@@ -365,8 +365,11 @@ export class TileField {
     const stage = this.stage;
     this.grid = parseStage(stage, this.band, this.field, this.theme === 'sand' ? this.area : null);
     const F = this.focus;
+    // the enemy preview pen above the field is lit with it (the official views show its floor as bright as the field's)
+    const pen = parsePenRect(stage?.config?.enemy_place_rect) || PEN_RECT;
+    const inPen = (t) => t.r >= pen.r0 && t.r <= pen.r1 && t.c >= pen.c0 && t.c <= pen.c1;
     for (const row of this.grid) for (const t of row) {
-      t.focus = !F || (t.r >= F.r0 && t.r <= F.r1 && t.c >= F.c0 && t.c <= F.c1);
+      t.focus = !F || (t.r >= F.r0 && t.r <= F.r1 && t.c >= F.c0 && t.c <= F.c1) || (F.r1 <= 13 && F.r0 >= 6 && inPen(t));
     }
     // raised device tops (active platforms / mounds) change the standing height of their tile
     for (const d of this._stageDevices()) {
@@ -977,24 +980,53 @@ export function planeOcclusion(G, far = 0.42) {
   return (x, y) => { const k = x * 1000 + y; let v = cache.get(k); if (v === undefined) { v = occl(x, y); cache.set(k, v); } return v; };
 }
 
-/** Where the sand board's lake begins (world x) at world row y, east of the island's last drawn column `maxC`. */
+/**
+ * Where the sand board's lake begins (world x) at world row y: east of the island's last drawn column `maxC` (a number,
+ * or a per-row function `(y) => col` that follows the island's outline), along a wavy shore.
+ */
 export function shoreX(maxC, y) {
-  return maxC + 1.6 + 0.45 * Math.sin(y * 0.9) + 0.25 * Math.sin(y * 2.3 + 1);
+  const c = typeof maxC === 'function' ? maxC(y) : maxC;
+  return c + 1.6 + 0.45 * Math.sin(y * 0.9) + 0.25 * Math.sin(y * 2.3 + 1);
+}
+
+/**
+ * The island's east edge per world row: the last drawn column of the nearest rows that have drawn tiles (rows ±1
+ * around y, so the shore stays clear of a block's corner), smoothly blended between rows; -1 when nothing is drawn.
+ */
+export function islandEdge(G) {
+  const last = new Array(ROWS).fill(-1);
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (G[r]?.[c]?.drawn) last[r] = c;
+  const rows = last.map((c, r) => (c >= 0 ? r : -1)).filter((r) => r >= 0);
+  if (!rows.length) return () => -1;
+  const at = (r) => {
+    // the nearest row with drawn tiles (rows above / below the island keep its outermost rows' edge)
+    let best = rows[0];
+    for (const k of rows) if (Math.abs(k - r) < Math.abs(best - r)) best = k;
+    let m = last[best];
+    for (const k of [best - 1, best + 1]) if (k >= 0 && k < ROWS && last[k] > m) m = last[k];
+    return m;
+  };
+  return (y) => {
+    const r0 = Math.floor(y), t = y - r0;
+    return at(r0) * (1 - t) + at(r0 + 1) * t;
+  };
 }
 
 /**
  * The lake beside the sand board's island: water cells (the atlas' `water` cell each) over the ground plane east of
- * the drawn tiles, fading in over a wavy shore (per-vertex alpha `va`). None when the island reaches the grid's
- * east edge (the full-width 联防 / boss fields): the lake then lies off screen.
+ * the drawn tiles — the shore follows the island's outline row by row (`islandEdge`: the field, then the wider pen
+ * above it) — fading in over a wavy shore (per-vertex alpha `va`). None when the island reaches the grid's east edge
+ * (the full-width 联防 / boss fields): the lake then lies off screen.
  */
 export function buildWaterQuads(G, uv, ao = planeOcclusion(G)) {
   let maxC = -1;
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (G[r]?.[c]?.drawn && c > maxC) maxC = c;
   if (maxC < 0 || maxC >= COLS - 1) return [];
+  const edge = islandEdge(G);
   const u = (uv && uv.water) || [0, 0, 0, 0];
   const z = -CLIFF_DEPTH + 0.01, S = PLANE.cell, FADE = 1.4;
   const quads = [];
-  const va = (x, y) => { const k = Math.max(0, Math.min(1, (x - shoreX(maxC, y)) / FADE)); return k * k * (3 - 2 * k); };
+  const va = (x, y) => { const k = Math.max(0, Math.min(1, (x - shoreX(edge, y)) / FADE)); return k * k * (3 - 2 * k); };
   for (let y = PLANE.y0; y < PLANE.y1; y += S) for (let x = PLANE.x0; x < PLANE.x1; x += S) {
     const xa = x - 0.5, xb = x - 0.5 + S, ya = y - 0.5, yb = y - 0.5 + S;
     const a = [va(xa, yb), va(xb, yb), va(xb, ya), va(xa, ya)];

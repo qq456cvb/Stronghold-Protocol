@@ -18,46 +18,40 @@ export function viewKind(kind, opts) {
   return k;
 }
 
-/** 3D areas without the enemy preview pen block (the own field / both normal halves); see `boardArea`. */
-const AREA_NO_PEN = Object.freeze({
-  normal: Object.freeze(AREAS.normal.filter((a) => a.r1 <= 13)),
-  unite: Object.freeze(AREAS.unite.filter((a) => a.r1 <= 13)),
-});
-
 /**
- * 3D area built for a view kind (viewKind): the enemy preview pen (rows 14–18) only for the 'pen' camera — the prep,
- * battle and 联防 cameras show the field alone (user playtest #2 item 6) with its separator rows 6 and 13 (the row-13
- * devices blow into the field: act2 m01's blowers, user playtest #5 item 6; the boss field's row-6 devices are drawn
- * with the boss field only — board3d/layout.js stageDevices); the boss kinds build the boss field.
+ * 3D area built for a view kind (viewKind): the field with its separator rows 6 and 13 (the row-13 devices blow into
+ * the field: act2 m01's blowers, user playtest #5 item 6; the boss field's row-6 devices are drawn with the boss field
+ * only — board3d/layout.js stageDevices) and the enemy preview pen above it (rows 14–18) — as in the official prep,
+ * battle and 联防 views, where the pen's front rows show at the top edge (the owner's 终极模拟 recordings of 2026-10-09:
+ * the waiting enemies in prep, the empty pen floor in battle; the owner's request of 2026-10-11 reverses user playtest
+ * #2 item 6, which had kept the pen for the 🔍 pen camera alone); the boss kinds build the boss field.
  */
 export function boardArea(vk) {
-  if (vk === 'pen') return AREAS.normal;
-  if (vk === 'prep' || vk === 'normal') return AREA_NO_PEN.normal.length ? AREA_NO_PEN.normal : AREAS.normal;
-  if (vk === 'unite') return AREA_NO_PEN.unite.length ? AREA_NO_PEN.unite : AREAS.unite;
+  if (vk === 'pen' || vk === 'prep' || vk === 'normal') return AREAS.normal;
+  if (vk === 'unite') return AREAS.unite;
   return areaFor(vk);
 }
 
-/**
- * 2D rows drawn for a view kind: the pen rows (14–18) only for the 'pen' camera; the boss field with the separator
- * and the normal rows behind it as scenery.
- */
+/** 2D rows drawn for a view kind: the field and the pen above it (rows 6–18); the boss field with the separator and the normal rows behind it as scenery. */
 export function bandFor(kind) {
   if (kind === 'boss' || kind === 'hidden' || kind === 'bossPrep') return [0, 13];
-  return kind === 'pen' ? [6, 18] : [6, 13];
+  return [6, 18];
 }
 
 /**
  * Active field rows [r0, r1] of a view kind for the 2D board (render/tiles.js `setView` field: drawn rows outside it are
- * dim scenery without devices): the normal / 联防 / prep fields live between the separator walls (rows 6–13, the
- * devices on the row-13 wall included; the row-6 wall's belong to the boss field — tiles.js _stageDevices); the pen
- * camera adds the pen (6–18); the boss field 0–6.
+ * dim scenery without devices): the normal / 联防 / prep fields and the pen above them (rows 6–18 — devices stand on
+ * rows ≤ 13 only, the row-6 wall's belong to the boss field — tiles.js _stageDevices); the boss field 0–6.
  */
 export function fieldRows(kind) {
-  return kind === 'boss' || kind === 'hidden' || kind === 'bossPrep' ? [0, 6] : kind === 'pen' ? [6, 18] : [6, 13];
+  return kind === 'boss' || kind === 'hidden' || kind === 'bossPrep' ? [0, 6] : [6, 18];
 }
 
-/** Are the pen's figures shown for a view kind (a camera flight shows them when either end is the pen)? */
-export const penShown = (vk, prevVk = null) => vk === 'pen' || prevVk === 'pen';
+/** The views that show the pen (its floor and, in prep, its waiting enemies): every view of the normal field. */
+const PEN_VIEWS = new Set(['pen', 'prep', 'normal', 'unite']);
+
+/** Are the pen's figures shown for a view kind (a camera flight shows them when either end shows the pen)? */
+export const penShown = (vk, prevVk = null) => PEN_VIEWS.has(vk) || PEN_VIEWS.has(prevVk);
 
 /** Is the prep's leader on the boss field shown for a view kind (a flight shows it when either end is the boss-field prep)? */
 export const leaderShown = (vk, prevVk = null) => vk === 'bossPrep' || prevVk === 'bossPrep';

@@ -5,10 +5,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseStage, buildWaterQuads, shoreX, decorSpots, planeOcclusion } from '../../public/js/render/tiles.js';
+import { parseStage, buildWaterQuads, shoreX, islandEdge, decorSpots, planeOcclusion } from '../../public/js/render/tiles.js';
 import { MATERIALS, BOARD_THEMES, boardThemeOf } from '../../public/js/render/textures.js';
 import { SEASON_THEME } from '../../public/js/render/style.js';
-import { boardArea, boardThemePreference, fieldRows } from '../../public/js/render/app.js';
+import { boardArea, boardThemePreference, fieldRows, bandFor } from '../../public/js/render/app.js';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const stagesJson = JSON.parse(readFileSync(path.join(ROOT, 'data/stages.json'), 'utf8'));
@@ -43,13 +43,15 @@ describe('board theme', () => {
 describe('the sand board is built only where the official client builds it', () => {
   const st = stages.act1autochess_m01;
 
-  test('a normal view draws the own half and the pen, not the other player’s half', () => {
+  test('a normal view draws the own half and the pen above it, not the other player’s half', () => {
     const area = boardArea('prep');
-    const g = parseStage(st, [6, 13], fieldRows('prep'), area);
-    for (let r = 6; r <= 13; r++) for (let c = 11; c <= 20; c++) assert.equal(g[r][c].drawn, false, `${r},${c}`);
+    const g = parseStage(st, bandFor('prep'), fieldRows('prep'), area);
+    for (let r = 6; r <= 12; r++) for (let c = 11; c <= 20; c++) assert.equal(g[r][c].drawn, false, `${r},${c}`);
     // the own field is drawn as before
-    const full = parseStage(st, [6, 13], fieldRows('prep'));
+    const full = parseStage(st, bandFor('prep'), fieldRows('prep'));
     for (let r = 6; r <= 13; r++) for (let c = 0; c <= 10; c++) assert.equal(g[r][c].drawn, full[r][c].drawn, `${r},${c}`);
+    // the pen's floor (rows 14–18, cols 7–13) is drawn
+    for (let r = 14; r <= 18; r++) for (let c = 7; c <= 13; c++) assert.equal(g[r][c].drawn, true, `pen ${r},${c}`);
   });
 
   test('without an area (the default board) the whole band is drawn as before', () => {
@@ -63,19 +65,20 @@ describe('the sand board is built only where the official client builds it', () 
 describe('the lake beside the island', () => {
   const st = stages.act2autochess_m04;
 
-  test('a normal view gets water east of the island, fading in over the shore', () => {
-    const g = parseStage(st, [6, 13], [6, 13], boardArea('normal'));
+  test('a normal view gets water east of the island, fading in over a shore that follows its outline', () => {
+    const g = parseStage(st, [6, 18], [6, 18], boardArea('normal'));
     const q = buildWaterQuads(g, uv, planeOcclusion(g));
     assert.ok(q.length > 50, `${q.length} water cells`);
-    let maxC = -1;
-    for (const row of g) for (const t of row) if (t.drawn) maxC = Math.max(maxC, t.c);
-    assert.equal(maxC, 10);
+    const edge = islandEdge(g);
+    // the field rows end at col 10 (their margin), the pen above reaches further east
+    assert.equal(edge(9.5) <= 10.5, true, `field edge ${edge(9.5)}`);
+    assert.ok(edge(16) > edge(9.5), `pen edge ${edge(16)} east of the field's`);
     for (const w of q) {
       assert.deepEqual(w.u, uv.water);
       assert.equal(w.va.length, 4);
       for (const a of w.va) assert.ok(a >= 0 && a <= 1);
       // nothing of it reaches over the island
-      for (const [k, [x, y]] of w.pts.entries()) if (x < shoreX(maxC, y)) assert.equal(w.va[k], 0);
+      for (const [k, [x, y]] of w.pts.entries()) if (x < shoreX(edge, y)) assert.equal(w.va[k], 0);
     }
   });
 
