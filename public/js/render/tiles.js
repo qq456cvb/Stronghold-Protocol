@@ -430,6 +430,8 @@ export class TileField {
   _buildQuads() {
     const uv = this.atlas.uv;
     const quads = buildTileQuads(this.grid, uv);
+    // the sand board's fences are raised wooden frames (the official board), not a painted border
+    if (this.theme === 'sand') fenceRimQuads(quads, uv, this.grid);
     for (const d of this.devBoxes) {
       if (!d.visible) continue;
       const spec = DEVICE_BOX[d.role];
@@ -942,6 +944,47 @@ export function boxQuads(quads, uv, cx, cy, z0, size, height, topMat, sideMat, o
   quads.push({ ...base, pts: sidePts('E', x0, x1, y0, y1, zt, z0), u: side, shade: 0.64, order: 1, faceDir: 'E', fx: x1 });
   quads.push({ ...base, pts: sidePts('W', x0, x1, y0, y1, zt, z0), u: side, shade: 0.64, order: 1, faceDir: 'W', fx: x0 });
   quads.push({ ...base, pts: [[x0, y1, zt], [x1, y1, zt], [x1, y0, zt], [x0, y0, zt]], u: top, shade: 1, order: 0, faceDir: 0, rot: o.rot | 0 });
+  return quads;
+}
+
+/**
+ * Append the visible faces of a rectangular box [x0, x1] × [y0, y1] × [z0, z0 + height] (top + S/E/W sides) to `quads`
+ * — `boxQuads` for a bar instead of a square. `o`: { row, col (sort keys), alpha }.
+ */
+export function rectBoxQuads(quads, uv, x0, x1, y0, y1, z0, height, topMat, sideMat, o = {}) {
+  const zt = z0 + height;
+  const blank = (uv && uv.blank) || [0, 0, 0, 0];
+  const top = (uv && uv[topMat]) || blank, side = (uv && uv[sideMat]) || blank;
+  const base = { kind: 'block', row: o.row ?? Math.round((y0 + y1) / 2), col: o.col ?? Math.round((x0 + x1) / 2), alpha: o.alpha ?? 1 };
+  const cx = (x0 + x1) / 2;
+  quads.push({ ...base, pts: sidePts('S', x0, x1, y0, y1, zt, z0), u: side, shade: 0.86, order: 1, faceDir: 'S', fx: cx });
+  quads.push({ ...base, pts: sidePts('E', x0, x1, y0, y1, zt, z0), u: side, shade: 0.64, order: 1, faceDir: 'E', fx: x1 });
+  quads.push({ ...base, pts: sidePts('W', x0, x1, y0, y1, zt, z0), u: side, shade: 0.64, order: 1, faceDir: 'W', fx: x0 });
+  quads.push({ ...base, pts: [[x0, y1, zt], [x1, y1, zt], [x1, y0, zt], [x0, y0, zt]], u: top, shade: 1, order: 0, faceDir: 0, rot: o.rot | 0 });
+  return quads;
+}
+
+/** Wooden fence frame of the sand board: bar thickness and height (tiles). */
+export const FENCE_RIM = Object.freeze({ t: 0.16, h: 0.13 });
+
+/**
+ * The raised wooden frames of the sand board's fence tiles (`b`): four low bars round each drawn fence tile, their
+ * tops the deck's planks, sides wood; the tile itself stays a ground-level sand slab (a unit stands inside the frame).
+ * Sorted with the tile's row. → quads
+ */
+export function fenceRimQuads(quads, uv, G) {
+  const { t, h } = FENCE_RIM;
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+    const g = G[r]?.[c];
+    if (!g || !g.drawn || g.glyph !== 'b') continue;
+    const x0 = c - 0.5, x1 = c + 0.5, y0 = r - 0.5, y1 = r + 0.5;
+    const o = { row: r, col: c, alpha: g.alpha };
+    const z0 = g.h;
+    rectBoxQuads(quads, uv, x0, x1, y1 - t, y1, z0, h, 'hand', 'fenceSide', o);          // far bar
+    rectBoxQuads(quads, uv, x0, x0 + t, y0 + t, y1 - t, z0, h, 'hand', 'fenceSide', { ...o, rot: 1 }); // left
+    rectBoxQuads(quads, uv, x1 - t, x1, y0 + t, y1 - t, z0, h, 'hand', 'fenceSide', { ...o, rot: 1 }); // right
+    rectBoxQuads(quads, uv, x0, x1, y0, y0 + t, z0, h, 'hand', 'fenceSide', o);          // near bar
+  }
   return quads;
 }
 

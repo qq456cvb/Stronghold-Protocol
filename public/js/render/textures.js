@@ -549,49 +549,6 @@ function zigzagFrame(ctx, x, y, s, band = 11) {
   ctx.restore();
 }
 
-/**
- * A raised wooden square frame around the slab (the fence tiles): thick planks with a lit top bevel and a dark outer
- * edge, and the deep shadow the frame casts into its well — it reads as standing up from the sand, as in the official board.
- */
-function woodFrame(ctx, x, y, s, r, band = 18) {
-  ctx.save();
-  // the shadow the frame casts into its well (light from the upper left: the far and the left side)
-  const sh = ctx.createLinearGradient(x, y + band, x, y + band + 20);
-  sh.addColorStop(0, 'rgba(80,54,28,0.6)'); sh.addColorStop(1, 'rgba(80,54,28,0)');
-  ctx.fillStyle = sh; ctx.fillRect(x + band, y + band, s - band * 2, 20);
-  const sl = ctx.createLinearGradient(x + band, y, x + band + 14, y);
-  sl.addColorStop(0, 'rgba(80,54,28,0.45)'); sl.addColorStop(1, 'rgba(80,54,28,0)');
-  ctx.fillStyle = sl; ctx.fillRect(x + band, y + band, 14, s - band * 2);
-  // the frame's outer edge, where it stands on the sand
-  ctx.fillStyle = 'rgba(90,62,34,0.7)'; ctx.fillRect(x, y, s, 2); ctx.fillRect(x, y, 2, s); ctx.fillRect(x, y + s - 2, s, 2); ctx.fillRect(x + s - 2, y, 2, s);
-  const plank = (px, py, w, h, horiz) => {
-    const g = horiz ? ctx.createLinearGradient(px, py, px, py + h) : ctx.createLinearGradient(px, py, px + w, py);
-    g.addColorStop(0, SAND.woodHi); g.addColorStop(0.45, SAND.wood); g.addColorStop(1, SAND.woodDark);
-    ctx.fillStyle = g; ctx.fillRect(px, py, w, h);
-    ctx.strokeStyle = 'rgba(110,74,38,0.35)'; ctx.lineWidth = 0.8;
-    for (let k = 0; k < 3; k++) {
-      ctx.beginPath();
-      if (horiz) { const yy = py + h * (0.25 + k * 0.25) + (r() - 0.5); ctx.moveTo(px + 2, yy); ctx.lineTo(px + w - 2, yy + (r() - 0.5)); }
-      else { const xx = px + w * (0.25 + k * 0.25) + (r() - 0.5); ctx.moveTo(xx, py + 2); ctx.lineTo(xx + (r() - 0.5), py + h - 2); }
-      ctx.stroke();
-    }
-    ctx.strokeStyle = SAND.woodSeam; ctx.lineWidth = 1.4; ctx.strokeRect(px + 0.7, py + 0.7, w - 1.4, h - 1.4);
-  };
-  plank(x + 2, y + 2, s - 4, band, true);
-  plank(x + 2, y + s - 2 - band, s - 4, band, true);
-  plank(x + 2, y + 2 + band, band, s - 4 - band * 2, false);
-  plank(x + s - 2 - band, y + 2 + band, band, s - 4 - band * 2, false);
-  // the lit top bevel of the frame and the dark inner lip over the well
-  ctx.fillStyle = 'rgba(255,244,220,0.55)'; ctx.fillRect(x + 3, y + 3, s - 6, 2); ctx.fillRect(x + 3, y + 3, 2, s - 6);
-  ctx.fillStyle = 'rgba(70,46,22,0.55)'; ctx.fillRect(x + band + 2, y + band + 2, s - 2 * band - 4, 2); ctx.fillRect(x + band + 2, y + band + 2, 2, s - 2 * band - 4);
-  // nails at the corners
-  ctx.fillStyle = 'rgba(70,60,50,0.8)';
-  for (const [nx, ny] of [[x + 2 + band / 2, y + 2 + band / 2], [x + s - 2 - band / 2, y + 2 + band / 2], [x + 2 + band / 2, y + s - 2 - band / 2], [x + s - 2 - band / 2, y + s - 2 - band / 2]]) {
-    ctx.beginPath(); ctx.arc(nx, ny, 1.6, 0, Math.PI * 2); ctx.fill();
-  }
-  ctx.restore();
-}
-
 /** Sandstone: a rounded block top with chipped corners; `cracked` breaks it into rocks. */
 function sandstoneTop(ctx, x, y, s, r, cracked = false, tone = 0) {
   ctx.fillStyle = SAND.rockLo; ctx.fillRect(x, y, s, s);
@@ -751,8 +708,27 @@ const SAND_DRAW = {
   forbidSide(ctx, x, y, s, r) { sandstoneSide(ctx, x, y, s, r); },
   sep(ctx, x, y, s, r) { sandstoneTop(ctx, x, y, s, r, false, 1); },
   sepSide(ctx, x, y, s, r) { sandstoneSide(ctx, x, y, s, r, SAND.rock, '#6a4a2c'); },
-  fence(ctx, x, y, s, r) { sandSlab(ctx, x, y, s, r, 0, false); woodFrame(ctx, x, y, s, r); },
-  fenceSide(ctx, x, y, s, r) { sandstoneSide(ctx, x, y, s, r, SAND.woodDark, SAND.woodSeam); },
+  // the fence tile's floor inside its raised wooden frame (render/tiles.js fenceRimQuads builds the frame): sand, shaded
+  // along the bars' feet
+  fence(ctx, x, y, s, r) {
+    sandSlab(ctx, x, y, s, r, 0, false);
+    const k = s * 0.13;
+    const sh = ctx.createLinearGradient(x, y + k, x, y + k + 16);
+    sh.addColorStop(0, 'rgba(90,64,36,0.45)'); sh.addColorStop(1, 'rgba(90,64,36,0)');
+    ctx.fillStyle = sh; ctx.fillRect(x, y + k, s, 16);
+    const sl = ctx.createLinearGradient(x + k, y, x + k + 12, y);
+    sl.addColorStop(0, 'rgba(90,64,36,0.35)'); sl.addColorStop(1, 'rgba(90,64,36,0)');
+    ctx.fillStyle = sl; ctx.fillRect(x + k, y, 12, s);
+  },
+  fenceSide(ctx, x, y, s, r) {
+    // a wooden plank seen edge-on: lit top lip, grain, darker foot
+    const g = ctx.createLinearGradient(x, y, x, y + s);
+    g.addColorStop(0, SAND.wood); g.addColorStop(1, SAND.woodSeam);
+    ctx.fillStyle = g; ctx.fillRect(x, y, s, s);
+    ctx.fillStyle = 'rgba(255,244,220,0.5)'; ctx.fillRect(x, y, s, 4);
+    ctx.strokeStyle = 'rgba(110,80,46,0.35)'; ctx.lineWidth = 1;
+    for (let k = 1; k < 4; k++) { const yy = y + (s * k) / 4 + (r() - 0.5) * 3; ctx.beginPath(); ctx.moveTo(x, yy); ctx.lineTo(x + s, yy + (r() - 0.5) * 2); ctx.stroke(); }
+  },
   start(ctx, x, y, s, r) {
     sandSlab(ctx, x, y, s, r, 0);
     ctx.fillStyle = 'rgba(255,80,60,0.16)'; ctx.fillRect(x + 2, y + 2, s - 4, s - 4);

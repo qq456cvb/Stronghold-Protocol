@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseStage, buildWaterQuads, shoreX, islandEdge, decorSpots, planeOcclusion, interiorPits } from '../../public/js/render/tiles.js';
+import { parseStage, buildWaterQuads, shoreX, islandEdge, decorSpots, planeOcclusion, interiorPits, fenceRimQuads, FENCE_RIM } from '../../public/js/render/tiles.js';
 import { MATERIALS, BOARD_THEMES, boardThemeOf } from '../../public/js/render/textures.js';
 import { SEASON_THEME } from '../../public/js/render/style.js';
 import { boardArea, boardThemePreference, fieldRows, bandFor } from '../../public/js/render/app.js';
@@ -127,5 +127,23 @@ describe('forbidden runs inside the field sink to pits', () => {
   test('act2 m04 has none (no forbidden tile inside its field)', () => {
     const g = parseStage(stages.act2autochess_m04, [6, 18], [6, 18], boardArea('normal'));
     assert.deepEqual(interiorPits(g).filter((t) => t.r >= 9 && t.r <= 12), []);
+  });
+});
+
+describe('raised wooden fence frames', () => {
+  test('four low bars round every drawn fence tile, sorted with its row, inside the tile', () => {
+    const g = parseStage(stages.act2autochess_m04, [6, 18], [6, 18], boardArea('normal'));
+    const fences = g.flat().filter((t) => t.drawn && t.glyph === 'b');
+    const q = fenceRimQuads([], uv, g);
+    assert.equal(q.length, fences.length * 4 * 4, '4 bars × (top + S/E/W) per fence tile');
+    for (const quad of q) {
+      assert.equal(quad.kind, 'block');
+      const t = g[quad.row][quad.col];
+      assert.equal(t.glyph, 'b');
+      for (const [x, y, z] of quad.pts) {
+        assert.ok(x >= quad.col - 0.5 - 1e-9 && x <= quad.col + 0.5 + 1e-9 && y >= quad.row - 0.5 - 1e-9 && y <= quad.row + 0.5 + 1e-9);
+        assert.ok(z >= -1e-9 && z <= FENCE_RIM.h + 1e-9);
+      }
+    }
   });
 });
