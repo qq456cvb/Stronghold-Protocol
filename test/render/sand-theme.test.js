@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseStage, buildWaterQuads, shoreX, islandEdge, decorSpots, planeOcclusion, interiorPits, fenceRimQuads, FENCE_RIM } from '../../public/js/render/tiles.js';
+import { parseStage, buildWaterQuads, shoreX, islandEdge, decorSpots, planeOcclusion, interiorPits, interiorRuns, fenceRimQuads, FENCE_RIM } from '../../public/js/render/tiles.js';
 import { MATERIALS, BOARD_THEMES, boardThemeOf } from '../../public/js/render/textures.js';
 import { SEASON_THEME } from '../../public/js/render/style.js';
 import { boardArea, boardThemePreference, fieldRows, bandFor } from '../../public/js/render/app.js';
@@ -118,16 +118,38 @@ describe('forbidden runs inside the field sink to pits', () => {
     assert.deepEqual(pits, ['9,5', '9,6', '9,7']);
   });
 
-  test('act2 m01: single blocks between lanes are pits; the block between the two halves (col 10) is not', () => {
+  test('act2 m01: single blocks between lanes are pits; the block between the two halves (col 10) and the one against the wall are not', () => {
     const g = parseStage(stages.act2autochess_m01, [6, 18], [6, 18], boardArea('normal'));
     const pits = new Set(interiorPits(g).map((t) => `${t.r},${t.c}`));
-    for (const k of ['10,6', '11,6', '10,8', '11,8', '9,6', '12,8']) assert.ok(pits.has(k), k);
-    for (const k of ['10,10', '11,10', '9,1', '10,2']) assert.ok(!pits.has(k), k);
+    for (const k of ['10,6', '11,6', '10,8', '11,8', '9,6']) assert.ok(pits.has(k), k);
+    // 12,8 lies against the separator wall: raised, as act1 m04's row-12 run in the recording
+    for (const k of ['10,10', '11,10', '9,1', '10,2', '12,8']) assert.ok(!pits.has(k), k);
+  });
+
+  test('act1 m04 (the P1 recording): the row-9 run is a pit; the row-12 run between the crates, against the separator wall, stays raised', () => {
+    const g = parseStage(stages.act1autochess_m04, [6, 18], [6, 18], boardArea('normal'));
+    const field = (t) => t.r >= 9 && t.r <= 12 && t.c <= 10;
+    assert.deepEqual(interiorPits(g).filter(field).map((t) => `${t.r},${t.c}`).sort(), ['9,5', '9,6', '9,7']);
+    const walls = interiorRuns(g).filter((run) => run.wall && run.tiles.every(field));
+    assert.deepEqual(walls.map((run) => run.tiles.map((t) => `${t.r},${t.c}`)), [['12,5', '12,6', '12,7']]);
+    // the recorded crates stand either side of that run (the official level's tokenInsts)
+    const crates = stages.act1autochess_m04.devices.filter((d) => d.role === 'crate' && d.pos[0] === 12 && d.pos[1] <= 10).map((d) => d.pos.join(','));
+    assert.deepEqual(crates.sort(), ['12,3', '12,4', '12,8']);
   });
 
   test('act2 m04 has none (no forbidden tile inside its field)', () => {
     const g = parseStage(stages.act2autochess_m04, [6, 18], [6, 18], boardArea('normal'));
     assert.deepEqual(interiorPits(g).filter((t) => t.r >= 9 && t.r <= 12), []);
+  });
+});
+
+describe('活性源石 on the sand board', () => {
+  test('its own drawer (a red shard on pale sand, as recorded on act1 m04), both variants; the default board keeps the crust', () => {
+    const src = readFileSync(path.join(ROOT, 'public/js/render/textures.js'), 'utf8');
+    const sand = src.slice(src.indexOf('const SAND_DRAW = {'));
+    assert.match(sand, /infection\(ctx, x, y, s, r\) \{ sandOriginium\(ctx, x, y, s, r, false\); \}/);
+    assert.match(sand, /infection2\(ctx, x, y, s, r\) \{ sandOriginium\(ctx, x, y, s, r, true\); \}/);
+    assert.match(src, /infection\(ctx, x, y, s, r\) \{ floorBase\(ctx, x, y, s, r\); originiumOverlay\(ctx, x, y, s, false\); \}/);
   });
 });
 

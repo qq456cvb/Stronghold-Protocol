@@ -380,18 +380,25 @@ export class TileField {
     }
     // the sand board's forbidden blocks are smooth sandstone, broken into rocks only along the item-slot row (the
     // official board: the blocks either side of the white slabs are rubble, the field's edge blocks smooth); a forbidden
-    // run inside the field sinks to a pit at ground level (interiorPits)
+    // run inside the field sinks to a pit at ground level unless it lies against the separator wall (interiorRuns)
     if (this.theme === 'sand') {
       for (const row of this.grid) {
         const rubble = row.some((t) => t.glyph === 'A');
         for (const t of row) if (t.glyph === '#' && t.mat === 'forbid') t.top = rubble ? 'forbid2' : 'forbid';
       }
-      for (const t of interiorPits(this.grid)) { t.mat = 'pit'; t.top = 'pit'; t.hClass = null; t.h = 0; }
+      const runs = interiorRuns(this.grid);
+      for (const run of runs) if (!run.wall) for (const t of run.tiles) { t.mat = 'pit'; t.top = 'pit'; t.hClass = null; t.h = 0; }
       // the official board's depth: taller sandstone blocks round the field (the rubble row keeps its height) and the
       // deep-water channel sunk below the ground, its neighbours showing their walls
       for (const row of this.grid) for (const t of row) {
         if (t.glyph === '#' && t.hClass === 'forbid' && t.top === 'forbid') t.h = SAND_DEPTH.block;
         else if (t.glyph === 'd') t.h = SAND_DEPTH.channel;
+      }
+      // a raised run against the separator wall breaks its middle block into rubble, at the run's height
+      for (const run of runs) {
+        if (!run.wall || run.tiles.length < 3) continue;
+        const mid = run.tiles[run.tiles.length >> 1];
+        if (mid.top === 'forbid') mid.top = 'forbid2';
       }
     }
     const hs = new Set([0]);
@@ -736,7 +743,8 @@ export class TileField {
       switch (t.glyph) {
         case 'g': add('smog', 'smoke', P.BLEND_MODES.NORMAL, 0xb8c4c0, 2); break;
         case 'd': add('sea', 'soft', P.BLEND_MODES.ADD, 0x5fe0ff, 1); break;
-        case 'i': add('infect', 'glow', P.BLEND_MODES.ADD, ORIGINIUM.glow, 1); break;
+        // the sand board's 活性源石 is a red mark on pale sand: a fainter, redder pulse
+        case 'i': add('infect', 'glow', P.BLEND_MODES.ADD, this.theme === 'sand' ? 0xe0505c : ORIGINIUM.glow, 1); break;
         case 'm': add('mire', 'dot', P.BLEND_MODES.ADD, 0xc8d890, 2); break;
         case 'I': case 'O': add('tel', 'ring', P.BLEND_MODES.ADD, 0xb36bff, 1); break;
         case 'S': if (r <= 12) add('gateGlow', 'glow', P.BLEND_MODES.ADD, COLORS.gateRed, 1); break;
@@ -779,7 +787,7 @@ export class TileField {
           break;
         }
         case 'sea': s.scale.set(px / 128 * 1.05, px / 128 * 0.62); s.alpha = 0.1 + 0.08 * Math.sin(t * 1.6 + a.phase); break;
-        case 'infect': s.scale.set(px / 128 * 1.2, px / 128 * 0.75); s.alpha = 0.22 + 0.16 * Math.sin(t * 2.2 + a.phase); break;
+        case 'infect': s.scale.set(px / 128 * 1.2, px / 128 * 0.75); s.alpha = (0.22 + 0.16 * Math.sin(t * 2.2 + a.phase)) * (this.theme === 'sand' ? 0.5 : 1); break;
         case 'mire': {
           const k = (t * 0.6 * a.sp + a.phase) % 1;
           s.scale.set(px / 32 * 0.12 * (0.4 + k));
@@ -1332,12 +1340,14 @@ function drawBush(g, cam, cx, cy, z0, seed) {
 }
 
 /**
- * Forbidden tiles inside a field of the sand board: a run of `#` along a row bounded on both ends by drawn, non-blocking
- * tiles of the same half (cols 0–10 / 11–20) — the official board sinks these to pits at ground level (act1 m01's row-9
- * run between the lanes) instead of raising sandstone blocks; the blocks along the field's edges and between the two
- * halves stay blocks. → the tiles (grid entries)
+ * Forbidden runs inside a field of the sand board: a run of `#` along a row bounded on both ends by drawn, non-blocking
+ * tiles of the same half (cols 0–10 / 11–20). The official board (act1 m04 in the owner's P1 recording) sinks such a run
+ * to a pit at ground level (its row-9 run between the lanes) unless it lies against the separator wall (an `X` row next
+ * to it): that one stays raised sandstone, its middle block broken (row 12 between the crates) — on the maps no
+ * recording shows, the same rule [ASSUMED]. The blocks along the field's edges and between the two halves are not runs.
+ * → [{ tiles, wall }]
  */
-export function interiorPits(G) {
+export function interiorRuns(G) {
   const out = [];
   const open = (t) => !!t && t.drawn && t.glyph !== '#' && t.glyph !== 'X' && !t.scenery;
   for (let r = 0; r < ROWS; r++) {
@@ -1349,12 +1359,23 @@ export function interiorPits(G) {
         if (row[c]?.glyph !== '#') { c++; continue; }
         let e = c;
         while (e + 1 <= c1 && row[e + 1]?.glyph === '#') e++;
-        if (c > c0 && e < c1 && open(row[c - 1]) && open(row[e + 1])) for (let k = c; k <= e; k++) if (row[k].drawn) out.push(row[k]);
+        if (c > c0 && e < c1 && open(row[c - 1]) && open(row[e + 1])) {
+          const tiles = [];
+          for (let k = c; k <= e; k++) if (row[k].drawn) tiles.push(row[k]);
+          let wall = false;
+          for (let k = c; k <= e; k++) if (G[r - 1]?.[k]?.glyph === 'X' || G[r + 1]?.[k]?.glyph === 'X') wall = true;
+          if (tiles.length) out.push({ tiles, wall });
+        }
         c = e + 1;
       }
     }
   }
   return out;
+}
+
+/** The forbidden tiles of the sand board that sink to ground-level pits (`interiorRuns` away from a wall). → the tiles */
+export function interiorPits(G) {
+  return interiorRuns(G).filter((run) => !run.wall).flatMap((run) => run.tiles);
 }
 
 /**

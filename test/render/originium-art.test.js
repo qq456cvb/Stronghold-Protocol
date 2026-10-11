@@ -75,5 +75,6 @@ test('活性源石: two variants are registered, picked by tile, and the pulse u
   assert.match(textures, /originium2\(ctx, x, y, s\) \{ originiumOverlay\(ctx, x, y, s, true\); \}/, 'the proc layer for the art path');
   assert.match(textures, /infection2: Object\.freeze\(\[Object\.freeze\(\{ src: 'D', rect: \[256, 512, 256, 256\] \}\), Object\.freeze\(\{ proc: 'originium2' \}\)\]\)/);
   assert.match(tiles, /case 'infection': return h < 4 \? 'infection' : 'infection2';/);
-  assert.match(tiles, /add\('infect', 'glow', P\.BLEND_MODES\.ADD, ORIGINIUM\.glow, 1\)/);
+  // the default board pulses in the shared tint; the sand board's pale 活性源石 mark pulses fainter and redder
+  assert.match(tiles, /add\('infect', 'glow', P\.BLEND_MODES\.ADD, this\.theme === 'sand' \? 0x[0-9a-f]{6} : ORIGINIUM\.glow, 1\)/);
 });

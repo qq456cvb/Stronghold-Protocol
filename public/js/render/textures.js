@@ -59,7 +59,7 @@ export const MATERIALS = [
   'penGlass',
   // the lake beside the sand board's island (render/tiles.js buildWaterQuads)
   'water',
-  // a forbidden run inside the sand board's field: a sunken pit at ground level (render/tiles.js interiorPits)
+  // a forbidden run inside the sand board's field: a sunken pit at ground level (render/tiles.js interiorRuns)
   'pit',
 ];
 
@@ -682,6 +682,38 @@ function waterBase(ctx, x, y, s, r, cols = ['#55aab0', '#4697a0', '#3a838e']) {
   ctx.restore();
 }
 
+/**
+ * 活性源石 on the sand board (the owner's P1 recording, act1 m04's two tiles): a pale sand slab under a thin red outline,
+ * a faint blue-grey dashed ring and a red originium shard lying diagonally across it — the hazard reads as a mark on the
+ * sand, not a crust. `mirrored` (`infection2`) turns the ring's dashes and tips the shard the other way.
+ */
+function sandOriginium(ctx, x, y, s, r, mirrored) {
+  sandSlab(ctx, x, y, s, r, 1);
+  ctx.fillStyle = 'rgba(255,238,228,0.22)'; ctx.fillRect(x, y, s, s);
+  ctx.strokeStyle = 'rgba(206,70,74,0.5)'; ctx.lineWidth = 2; ctx.strokeRect(x + 5, y + 5, s - 10, s - 10);
+  const cx = x + s / 2, cy = y + s / 2;
+  ctx.save();
+  ctx.setLineDash([s * 0.17, s * 0.08]); ctx.lineDashOffset = mirrored ? s * 0.12 : 0;
+  ctx.strokeStyle = 'rgba(104,122,160,0.5)'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(cx, cy, s * 0.36, 0, Math.PI * 2); ctx.stroke();
+  ctx.restore();
+  // the shard: a long thin hexagon from upper left to lower right, a lighter core and a soft red bloom under it
+  const a = (mirrored ? 0.5 : 0.62) + (r() - 0.5) * 0.08, len = s * 0.3, w = s * 0.055;
+  const ux = Math.cos(a), uy = Math.sin(a), nx = -uy, ny = ux;
+  const ox = cx - s * 0.04, oy = cy - s * 0.03;
+  const bloom = ctx.createRadialGradient(ox, oy, 0, ox, oy, s * 0.32);
+  bloom.addColorStop(0, 'rgba(230,70,90,0.22)'); bloom.addColorStop(1, 'rgba(230,70,90,0)');
+  ctx.fillStyle = bloom; ctx.fillRect(x, y, s, s);
+  const pt = (t, k) => [ox + ux * len * t + nx * w * k, oy + uy * len * t + ny * w * k];
+  const shard = [pt(-1, 0), pt(-0.7, -1), pt(0.75, -1), pt(1, 0), pt(0.75, 1), pt(-0.7, 1)];
+  ctx.beginPath(); shard.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py))); ctx.closePath();
+  ctx.fillStyle = 'rgba(220,70,88,0.8)'; ctx.fill();
+  ctx.strokeStyle = 'rgba(120,24,36,0.45)'; ctx.lineWidth = 1.2; ctx.stroke();
+  const core = [pt(-0.8, -0.1), pt(-0.55, -0.55), pt(0.6, -0.55), pt(0.82, -0.1)];
+  ctx.beginPath(); core.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py))); ctx.closePath();
+  ctx.fillStyle = 'rgba(255,170,176,0.75)'; ctx.fill();
+}
+
 /** Material drawers of the sand board; a material it leaves out keeps its default drawer. */
 const SAND_DRAW = {
   road(ctx, x, y, s, r) { sandSlab(ctx, x, y, s, r, 0); diamondLattice(ctx, x, y, s, r, 2, 5); },
@@ -762,6 +794,8 @@ const SAND_DRAW = {
     ctx.strokeStyle = 'rgba(200,215,120,0.4)'; ctx.lineWidth = 1.4;
     for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.arc(x + 14 + r() * (s - 28), y + 14 + r() * (s - 28), 2 + r() * 4, 0, Math.PI * 2); ctx.stroke(); }
   },
+  infection(ctx, x, y, s, r) { sandOriginium(ctx, x, y, s, r, false); },
+  infection2(ctx, x, y, s, r) { sandOriginium(ctx, x, y, s, r, true); },
   deepsea(ctx, x, y, s, r) {
     // a sunken channel: sandstone lips, teal water inside
     ctx.fillStyle = SAND.deep; ctx.fillRect(x, y, s, s);
