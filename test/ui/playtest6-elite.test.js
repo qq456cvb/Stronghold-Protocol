@@ -131,6 +131,24 @@ describe('shop bar: the merge tag and the armed card', () => {
     assert.ok(text.includes('可晋升：') && text.includes('精锐干员将出现在作战区原位置'), text);
     assert.ok(!ChessDetail({ chess: r.chess, piece: null, editable: false, bonds: [], loadout: null }).some((b) => b.key === 'merge'), 'no hint, no line');
   });
+  test('a card of an operator the player already owns carries the official gold sweep (is-owned + .scard__sweep)', () => {
+    const slot = { kind: 'chess', id: A, price: 1, basePrice: 1 };
+    const sweepOf = (priv) => {
+      const card = ChessCard({ slot, idx: 0, priv, onBuy() {}, onDetail() {} });
+      return { owned: hasClass(card, 'is-owned'), el: [...walk(card)].find((v) => hasClass(v, 'scard__sweep')) };
+    };
+    const one = sweepOf({ board: [], hand: [inHand(A, 1)] });
+    assert.ok(one.owned && one.el, 'one copy on the bench: the sweep runs (the official round-1 阿戈尔)');
+    assert.equal(one.el.props['aria-hidden'], 'true');
+    assert.ok(sweepOf({ board: [onBoard(A, 10, 4)], hand: [inHand(A, 2)] }).el, 'two copies (the merging buy) too');
+    const none = sweepOf({ board: [], hand: [] });
+    assert.ok(!none.owned && !none.el, 'not owned: no sweep');
+    const elite = ChessCard({ slot: { kind: 'chess', id: golden(A), price: 3, basePrice: 3 }, idx: 0, priv: { board: [], hand: [inHand(A, 1)] }, onBuy() {}, onDetail() {} });
+    assert.ok(!hasClass(elite, 'is-owned'), 'an elite card (it never merges) does not sweep');
+    const css = read('public/css/screens/game-shop.css');
+    assert.match(css, /\.scard__sweep::before \{[^}]*animation: scard-sweep 2\.8s/);
+    assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{\n {2}\/\* no sweep/);
+  });
   test('an elite card never merges (server completesChessMerge refuses isGolden): no pips, no tag, no target tile', () => {
     const E = golden(A);
     const priv = { board: [onBoard(A, 10, 4, 'UP')], hand: [inHand(A, 2)] };

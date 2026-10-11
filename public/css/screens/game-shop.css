@@ -145,6 +145,30 @@
 .shopbar.is-locked .scard:not(.scard--sold) { cursor: help; } /* not editable: a tap opens the detail */
 .scard.is-disabled .scard__art, .scard.is-disabled .scard__itemart { filter: grayscale(.7) brightness(.6); }
 .scard.is-merge { border-color: var(--gold); box-shadow: 0 0 0 1px rgba(255, 198, 0, .6), 0 0 .2rem rgba(255, 198, 0, .3); }
+/* The official sweep over a card whose operator the player already owns (every 盟约 recording, e.g. the second 阿戈尔 card
+   of round 1): every 2.8 s a gold wash rises from the card's foot to its top in ≈ .75 s — over the art and the text,
+   which it brightens (screen blend) — while the frame turns gold, then it vanishes and the card rests ≈ 2 s. */
+.scard__sweep { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; }
+.scard__sweep::before {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 170%;
+  background: linear-gradient(0deg, rgba(255, 186, 36, .9) 0%, rgba(255, 196, 60, .72) 48%, rgba(255, 210, 96, 0) 72%);
+  mix-blend-mode: screen; transform: translateY(100%); opacity: 0;
+  animation: scard-sweep 2.8s cubic-bezier(.4, 0, .6, 1) infinite;
+}
+.scard__sweep::after { content: ''; position: absolute; inset: 0; box-shadow: inset 0 0 0 2px #ffc93a; opacity: 0; animation: scard-sweep-frame 2.8s linear infinite; }
+@keyframes scard-sweep {
+  0% { transform: translateY(100%); opacity: 1; }
+  27% { transform: translateY(0); opacity: 1; }
+  33% { transform: translateY(0); opacity: 0; }
+  100% { transform: translateY(0); opacity: 0; }
+}
+@keyframes scard-sweep-frame { 0% { opacity: 0; } 6% { opacity: 1; } 29% { opacity: 1; } 34% { opacity: 0; } 100% { opacity: 0; } }
+.scard--sold .scard__sweep { display: none; }
+@media (prefers-reduced-motion: reduce) {
+  /* no sweep: a still gold foot and frame say the same */
+  .scard__sweep::before { animation: none; transform: translateY(62%); opacity: .55; }
+  .scard__sweep::after { animation: none; opacity: .8; }
+}
 .scard.is-frozen::after { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none;
   background: linear-gradient(180deg, rgba(159, 212, 255, .28), rgba(159, 212, 255, .12) 50%, rgba(159, 212, 255, .34));
   box-shadow: inset 0 0 0 2px rgba(159, 212, 255, .8), inset 0 0 .3rem rgba(159, 212, 255, .5); }
